@@ -4,6 +4,7 @@
   "description": "Корпоративная платформа обучения сотрудников",
   "scripts": {
     "build": "vite build",
+    "release": "node scripts/release.js",
     "start": "node server/index.js",
     "dev:server": "node --watch server/index.js",
     "dev:client": "vite",
