@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Eye, CheckCircle2, Clock, RotateCcw, Star, Timer, ListChecks, Lock, ArrowLeft } from 'lucide-react';
 import { api } from '../../api';
@@ -7,6 +7,7 @@ import { BlocksView } from '../../blocks/BlockView';
 import { TestRun, TestResult } from '../../blocks/TestRunner';
 import { Composer, Thread } from '../../components/Thread';
 import { TYPE_LABEL, fmtDate, plural } from '../../utils';
+import { celebrate } from '../../components/celebrate';
 
 function Sidebar({ data, courseId, lessonId }) {
   const currentModule = data.modules.find((m) => m.lessons.some((l) => l.id === lessonId))?.id;
@@ -25,15 +26,17 @@ function Sidebar({ data, courseId, lessonId }) {
           <div className="side-module" onClick={() => setOpen({ ...open, [m.id]: !open[m.id] })}>
             <span className="flex-1">{m.title}</span>
             <span className="xs muted">{m.completed}/{m.lessons.length}</span>
-            {open[m.id] ? <ChevronUp size={15} className="muted" /> : <ChevronDown size={15} className="muted" />}
+            <ChevronDown size={15} className="muted chev" style={{ transform: open[m.id] ? 'rotate(180deg)' : 'none' }} />
           </div>
-          {open[m.id] && m.lessons.map((l) => (l.locked && !data.preview
+          <div className={`collapse ${open[m.id] ? '' : 'closed'}`}><div className="collapse-inner">
+          {m.lessons.map((l) => (l.locked && !data.preview
             ? <div key={l.id} className="side-lesson" style={{ opacity: .55 }}><StatusIcon locked /><span className="ellipsis">{l.title}</span></div>
             : (
               <Link key={l.id} to={`/course/${courseId}/lesson/${l.id}`} className={`side-lesson ${l.id === lessonId ? 'current' : ''}`}>
                 <StatusIcon status={l.status} /><span className="ellipsis flex-1">{l.title}</span>
               </Link>
             )))}
+          </div></div>
         </div>
       ))}
     </aside>
@@ -42,12 +45,26 @@ function Sidebar({ data, courseId, lessonId }) {
 
 function LectureView({ data, onComplete, busy, goPrev }) {
   const pages = data.content.pages?.filter((p) => p.blocks?.length) || [];
-  const [page, setPage] = useState(0);
-  useEffect(() => { setPage(0); }, [data.lesson.id]);
+  const [page, setPageState] = useState(0);
+  const dir = useRef('fwd');
+  const setPage = (n) => { dir.current = n < page ? 'back' : 'fwd'; setPageState(n); };
+  useEffect(() => { setPageState(0); }, [data.lesson.id]);
   const total = Math.max(1, pages.length);
   const last = page >= total - 1;
   const top = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   const completed = data.state.status === 'completed';
+  // Листание страниц урока стрелками ← → (если курсор не в поле ввода)
+  const keyRef = useRef(null);
+  keyRef.current = (e) => {
+    if (e.altKey || e.ctrlKey || e.metaKey || e.target.closest('input, textarea, [contenteditable="true"], .pdf-viewer, video, audio, .modal')) return;
+    if (e.key === 'ArrowRight' && !last) { setPage(page + 1); top(); }
+    if (e.key === 'ArrowLeft' && page > 0) { setPage(page - 1); top(); }
+  };
+  useEffect(() => {
+    const h = (e) => keyRef.current(e);
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
   return (
     <>
       <div className="card lesson-paper">
@@ -58,7 +75,9 @@ function LectureView({ data, onComplete, busy, goPrev }) {
           {completed && <span className="badge badge-success"><CheckCircle2 size={12} />Пройдено</span>}
         </div>
         <h1 className="lesson-h1">{data.lesson.title}</h1>
-        {pages.length ? <BlocksView blocks={pages[page].blocks} /> : <p className="muted">В этом уроке пока нет материалов.</p>}
+        {pages.length
+          ? <div key={`${data.lesson.id}-${page}`} className={`page-in ${dir.current === 'back' ? 'back' : ''}`}><BlocksView blocks={pages[page].blocks} /></div>
+          : <p className="muted">В этом уроке пока нет материалов.</p>}
       </div>
       <div className="player-nav">
         <button className="btn btn-secondary" onClick={() => { if (page > 0) { setPage(page - 1); top(); } else goPrev(); }} disabled={page === 0 && !data.prev}>
@@ -97,7 +116,7 @@ function TestView({ data, reload, goNext }) {
         <div className="lesson-topline"><span className="badge badge-accent"><ListChecks size={13} />Тест</span></div>
         <h1 className="lesson-h1" style={{ marginBottom: 12 }}>{data.lesson.title}</h1>
         <TestRun attempt={run} lessonId={data.lesson.id} onCancel={data.preview ? () => setRun(null) : null}
-          onFinished={(r) => { setRun(null); setResult(r); window.scrollTo({ top: 0 }); if (!data.preview) reload(); }} />
+          onFinished={(r) => { setRun(null); setResult({ ...r, fresh: true }); window.scrollTo({ top: 0 }); if (r.passed) setTimeout(() => celebrate(), 250); if (!data.preview) reload(); }} />
       </div>
     );
   }

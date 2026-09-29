@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { celebrate } from '../../components/celebrate';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronDown, ChevronUp, PlayCircle, Star, Award, Eye, GraduationCap, PenTool, ListChecks, Clock } from 'lucide-react';
 import { useApi, Loading, ErrorBox, Hero, Ring, StatusIcon, TypeIcon, STATUS_TEXT } from '../../components/ui';
@@ -23,6 +24,13 @@ export default function CoursePage() {
   const nav = useNavigate();
   const { data, error, loading, reload } = useApi(`/learn/courses/${courseId}`);
   const [closed, setClosed] = useState({});
+  // Курс только что завершён — поздравляем один раз
+  useEffect(() => {
+    if (!data?.completedAt || data.preview) return;
+    const key = `lms-celebrated-course-${data.id}`;
+    try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch { return; }
+    setTimeout(() => celebrate({ count: 180 }), 350);
+  }, [data]);
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   const c = data;
@@ -47,6 +55,9 @@ export default function CoursePage() {
               <PlayCircle size={18} />{c.completedAt ? 'Открыть материалы' : c.progress > 0 ? 'Продолжить обучение' : 'Начать обучение'}
             </button>
           )}
+          {c.completedAt && !c.preview && (
+            <Link to={`/course/${c.id}/certificate`} className="btn" style={{ background: 'rgba(255,255,255,.16)', color: '#fff' }}><Award size={17} />Сертификат</Link>
+          )}
           <span style={{ opacity: .9, fontSize: 14 }}>Пройдено {c.completed} из {c.total}</span>
         </div>
       </Hero>
@@ -64,9 +75,9 @@ export default function CoursePage() {
                 <h3>{m.title}</h3>
                 <div className="small muted">{m.completed} из {m.lessons.length} {plural(m.lessons.length, 'занятия', 'занятий', 'занятий')} пройдено</div>
               </div>
-              {isClosed ? <ChevronDown size={20} className="muted" /> : <ChevronUp size={20} className="muted" />}
+              <ChevronUp size={20} className={`muted chev ${isClosed ? 'closed' : ''}`} style={isClosed ? { transform: 'rotate(180deg)' } : undefined} />
             </div>
-            {!isClosed && (
+            <div className={`collapse ${isClosed ? 'closed' : ''}`}><div className="collapse-inner">
               <div className="module-lessons">
                 {m.lessons.map((l) => {
                   const inner = (
@@ -82,7 +93,7 @@ export default function CoursePage() {
                     : <Link key={l.id} to={`/course/${c.id}/lesson/${l.id}`} className={`lesson-row ${l.status === 'completed' ? 'done' : ''}`} title={STATUS_TEXT[l.status]}>{inner}</Link>;
                 })}
               </div>
-            )}
+            </div></div>
           </div>
         );
       })}
@@ -95,6 +106,7 @@ export default function CoursePage() {
               <h3>Завершение курса</h3>
               <div className="small muted">{c.completedAt ? `Курс пройден ${fmtDate(c.completedAt)}` : 'Чтобы завершить курс, пройдите все занятия. Задания должны быть приняты куратором, тесты — сданы.'}</div>
             </div>
+            {c.completedAt && !c.preview && <Link to={`/course/${c.id}/certificate`} className="btn btn-soft"><Award size={16} />Открыть сертификат</Link>}
           </div>
         </div>
       )}

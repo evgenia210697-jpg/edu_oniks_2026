@@ -125,6 +125,18 @@ export default function LessonEditor({ lessonId, courseId, onChanged, onDeleted,
     return () => { alive = false; flush(); };
   }, [lessonId]); // eslint-disable-line
 
+  // Ctrl+S / ⌘S — сохранить черновик сразу, не дожидаясь автосохранения
+  useEffect(() => {
+    const h = (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S' || e.code === 'KeyS')) {
+        e.preventDefault();
+        flush().then(() => toast('Черновик сохранён'));
+      }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [flush, toast]);
+
   useEffect(() => {
     const h = (e) => { if (pending.current) { flush(); e.preventDefault(); e.returnValue = ''; } };
     window.addEventListener('beforeunload', h);
@@ -143,7 +155,7 @@ export default function LessonEditor({ lessonId, courseId, onChanged, onDeleted,
   }, [lessonId, flush]);
 
   if (error) return <div className="card"><ErrorBox error={error} /></div>;
-  if (!lesson || !draft) return <div className="card"><Loading /></div>;
+  if (!lesson || !draft) return <div className="card card-pad"><Loading variant="inline" /></div>;
 
   const saveMeta = async (patch) => {
     try {
@@ -210,7 +222,7 @@ export default function LessonEditor({ lessonId, courseId, onChanged, onDeleted,
             <MenuItem icon={Trash2} danger onClick={remove}>Удалить занятие</MenuItem>
           </Menu>
           <button className={`btn ${upToDate ? 'btn-soft' : 'btn-primary'}`} onClick={publish} disabled={upToDate}>
-            {upToDate ? <><Check size={16} />Опубликовано</> : <><Send size={15} />{published ? 'Опубликовать изменения' : 'Опубликовать'}</>}
+            {upToDate ? <><Check size={16} />Опубликовано</> : <><Send size={15} />{published ? 'Опубликовать изменения' : 'Опубликовать занятие'}</>}
           </button>
         </div>
         {!published && <div className="xs muted" style={{ width: '100%' }}>Черновик — ученики не видят это занятие, пока вы его не опубликуете.</div>}

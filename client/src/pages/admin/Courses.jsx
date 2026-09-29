@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Users, Layers, CheckCircle2, EyeOff, PlusCircle } from 'lucide-react';
 import { api } from '../../api';
 import { useApi, Loading, ErrorBox, Modal, Field, useToast, Empty } from '../../components/ui';
 import { CourseCover } from '../student/Library';
+import QuickStart from './QuickStart';
 import { plural } from '../../utils';
 
 export function CreateCourseModal({ onClose }) {
@@ -32,7 +33,10 @@ export function CreateCourseModal({ onClose }) {
 export default function Courses() {
   const { data, error, loading, reload } = useApi('/admin/courses');
   const [q, setQ] = useState('');
-  const [creating, setCreating] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const [creating, setCreatingState] = useState(params.get('new') === '1');
+  const setCreating = (v) => { setCreatingState(v); if (!v && params.get('new')) setParams({}, { replace: true }); };
+  useEffect(() => { if (params.get('new') === '1') setCreatingState(true); }, [params]);
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   const list = data.filter((c) => c.title.toLowerCase().includes(q.toLowerCase()));
@@ -42,13 +46,14 @@ export default function Courses() {
         <div className="flex-1"><h1>Курсы</h1><div className="page-sub">Создавайте курсы, наполняйте уроками, тестами и заданиями</div></div>
         <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={17} />Создать курс</button>
       </div>
+      <QuickStart courses={data} />
       {data.length > 4 && (
         <div className="toolbar"><div className="input-group"><Search size={17} /><input className="input" placeholder="Поиск по курсам" value={q} onChange={(e) => setQ(e.target.value)} /></div></div>
       )}
       {data.length === 0 ? (
         <div className="card"><Empty icon={Layers} title="Пока нет ни одного курса" text="Создайте первый курс — например, «Адаптация новых сотрудников»."><button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={17} />Создать курс</button></Empty></div>
       ) : (
-        <div className="course-grid">
+        <div className="course-grid stagger">
           {list.map((c) => (
             <Link key={c.id} to={`/admin/courses/${c.id}`} className="card course-card">
               <CourseCover course={c} />

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Check, AlertCircle, Lock, Clock, RotateCcw, GraduationCap, PenTool, ListChecks, Inbox } from 'lucide-react';
 import { api } from '../api';
@@ -30,8 +30,10 @@ export function ToastProvider({ children }) {
   const [items, setItems] = useState([]);
   const push = useCallback((text, type = 'ok') => {
     const id = Math.random();
-    setItems((a) => [...a, { id, text, type }]);
-    setTimeout(() => setItems((a) => a.filter((x) => x.id !== id)), type === 'error' ? 5000 : 2800);
+    setItems((a) => [...a.slice(-3), { id, text, type }]);
+    const life = type === 'error' ? 5000 : 2800;
+    setTimeout(() => setItems((a) => a.map((x) => (x.id === id ? { ...x, leaving: true } : x))), life);
+    setTimeout(() => setItems((a) => a.filter((x) => x.id !== id)), life + 240);
   }, []);
   const toast = useCallback((t) => push(t, 'ok'), [push]);
   toast.error = (t) => push(t instanceof Error ? t.message : t, 'error');
@@ -41,7 +43,7 @@ export function ToastProvider({ children }) {
       {createPortal(
         <div className="toasts">
           {items.map((t) => (
-            <div key={t.id} className={`toast ${t.type === 'error' ? 'error' : ''}`}>
+            <div key={t.id} className={`toast ${t.type === 'error' ? 'error' : ''} ${t.leaving ? 'leaving' : ''}`} role="status">
               {t.type === 'error' ? <AlertCircle size={18} /> : <Check size={18} />}{t.text}
             </div>
           ))}
@@ -53,21 +55,31 @@ export const useToast = () => useContext(ToastCtx);
 
 /* ---------- Модальное окно ---------- */
 export function Modal({ title, children, footer, onClose, size = '', closeOnBackdrop = true }) {
+  const [closing, setClosing] = useState(false);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  // закрытие по Esc, фону и крестику — с анимацией исчезновения
+  const animatedClose = useCallback(() => {
+    setClosing((was) => {
+      if (!was) setTimeout(() => closeRef.current?.(), 150);
+      return true;
+    });
+  }, []);
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    const onKey = (e) => { if (e.key === 'Escape') animatedClose(); };
     document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
-  }, [onClose]);
+  }, [animatedClose]);
   const down = useRef(false);
   return createPortal(
-    <div className="modal-backdrop" onMouseDown={(e) => { down.current = e.target === e.currentTarget; }}
-      onMouseUp={(e) => { if (closeOnBackdrop && down.current && e.target === e.currentTarget) onClose?.(); }}>
-      <div className={`modal ${size}`} role="dialog" aria-modal="true">
+    <div className={`modal-backdrop ${closing ? 'closing' : ''}`} onMouseDown={(e) => { down.current = e.target === e.currentTarget; }}
+      onMouseUp={(e) => { if (closeOnBackdrop && down.current && e.target === e.currentTarget) animatedClose(); }}>
+      <div className={`modal ${size}`} role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined}>
         <div className="modal-head">
           <h2>{title}</h2>
-          <button className="btn btn-ghost btn-icon btn-sm" onClick={onClose} aria-label="Закрыть"><X size={18} /></button>
+          <button className="btn btn-ghost btn-icon btn-sm" onClick={animatedClose} aria-label="Закрыть"><X size={18} /></button>
         </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
@@ -137,21 +149,40 @@ export const usePrompt = () => useContext(PromptCtx);
 /* ---------- Выпадающее меню ---------- */
 export function Menu({ trigger, children, align = 'right', className = '' }) {
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [place, setPlace] = useState({ align, up: false });
   const ref = useRef(null);
+  const menuRef = useRef(null);
+  const close = useCallback(() => {
+    setClosing(true);
+    setTimeout(() => { setOpen(false); setClosing(false); }, 110);
+  }, []);
+  const toggle = useCallback(() => { if (open) close(); else { setPlace({ align, up: false }); setOpen(true); } }, [open, close, align]);
   useEffect(() => {
-    if (!open) return;
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    const k = (e) => { if (e.key === 'Escape') setOpen(false); };
+    if (!open) return undefined;
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) close(); };
+    const k = (e) => { if (e.key === 'Escape') close(); };
     document.addEventListener('mousedown', h);
     document.addEventListener('keydown', k);
     return () => { document.removeEventListener('mousedown', h); document.removeEventListener('keydown', k); };
-  }, [open]);
+  }, [open, close]);
+  // если меню не помещается на экране — разворачиваем его в другую сторону
+  useLayoutEffect(() => {
+    if (!open || !menuRef.current) return;
+    const r = menuRef.current.getBoundingClientRect();
+    const next = { ...place };
+    if (r.right > window.innerWidth - 8 && place.align === 'left') next.align = 'right';
+    else if (r.left < 8 && place.align !== 'left') next.align = 'left';
+    if (r.bottom > window.innerHeight - 8 && r.height < r.top - 16) next.up = true;
+    if (next.align !== place.align || next.up !== place.up) setPlace(next);
+  }, [open, place]);
   return (
     <div className="menu-wrap" ref={ref}>
-      {trigger({ open, toggle: () => setOpen((o) => !o) })}
+      {trigger({ open, toggle })}
       {open && (
-        <div className={`menu ${align === 'left' ? 'left' : ''} ${className}`} onClick={(e) => { if (e.target.closest('.menu-item')) setOpen(false); }}>
-          {typeof children === 'function' ? children({ close: () => setOpen(false) }) : children}
+        <div ref={menuRef} className={`menu ${place.align === 'left' ? 'left' : ''} ${place.up ? 'up' : ''} ${closing ? 'closing' : ''} ${className}`}
+          onClick={(e) => { if (e.target.closest('.menu-item')) close(); }}>
+          {typeof children === 'function' ? children({ close }) : children}
         </div>
       )}
     </div>
@@ -187,7 +218,17 @@ export function Field({ label, hint, children, style }) {
 }
 
 export const Spinner = ({ small }) => <div className={`spinner ${small ? 'sm' : ''}`} />;
-export const Loading = () => <div className="loading-page"><Spinner /></div>;
+/** Загрузка страницы: скелет вместо пустого экрана (появляется с небольшой задержкой, чтобы не мигать) */
+export const Loading = ({ variant = 'page' }) => (
+  <div className="skeleton-page" aria-busy="true" aria-label="Загрузка">
+    {variant === 'page' && <div className="sk sk-hero" />}
+    <div className="sk sk-line" style={{ width: '38%', height: 22 }} />
+    <div className="sk sk-line" style={{ width: '62%' }} />
+    <div className="sk-grid mt-16">
+      <div className="sk sk-card" /><div className="sk sk-card" /><div className="sk sk-card" />
+    </div>
+  </div>
+);
 
 export function ErrorBox({ error, onRetry }) {
   return (

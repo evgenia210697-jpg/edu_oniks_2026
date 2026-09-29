@@ -4,13 +4,14 @@ import { generateHTML, generateJSON } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
 import Highlight from '@tiptap/extension-highlight';
-import { TextStyle, Color } from '@tiptap/extension-text-style';
+import { TextStyle, Color, FontSize } from '@tiptap/extension-text-style';
 import Placeholder from '@tiptap/extension-placeholder';
 import {
   Bold, Italic, Underline, Strikethrough, List, ListOrdered, Link2, Highlighter, AlignLeft, AlignCenter, AlignRight,
-  Heading2, Heading3, Pilcrow, Quote, RemoveFormatting, Undo2, Redo2, Palette,
+  Heading2, Heading3, Pilcrow, Quote, RemoveFormatting, Undo2, Redo2, Baseline, ALargeSmall, ChevronDown,
 } from 'lucide-react';
 import { Menu, usePrompt } from './ui';
+import ColorPicker from './ColorPicker';
 
 const baseExtensions = [
   StarterKit.configure({
@@ -18,10 +19,23 @@ const baseExtensions = [
     link: { openOnClick: false, autolink: true, HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' }, protocols: ['http', 'https', 'mailto', 'tel'] },
   }),
   TextAlign.configure({ types: ['heading', 'paragraph'] }),
-  Highlight,
+  Highlight.configure({ multicolor: true }),
   TextStyle,
   Color,
+  FontSize,
 ];
+
+const FONT_SIZES = [
+  { label: 'Мелкий', value: '13px' },
+  { label: 'Обычный', value: null },
+  { label: 'Крупный', value: '19px' },
+  { label: 'Очень крупный', value: '24px' },
+];
+// Фирменные цвета компании — первыми в палитре (цвет платформы берётся из настроек)
+const brandColors = () => {
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#2f5bea';
+  return [accent, '#19212c', '#d63b3b', '#15935b', '#e0730b'];
+};
 
 /** Безопасный вывод HTML: разбирается по схеме редактора, всё лишнее отбрасывается */
 export function RichText({ html, className = '' }) {
@@ -32,7 +46,6 @@ export function RichText({ html, className = '' }) {
   return <div className={`rt ${className}`} dangerouslySetInnerHTML={{ __html: safe }} />;
 }
 
-const COLORS = ['#19212c', '#6b7686', '#d63b3b', '#e0730b', '#c89b00', '#15935b', '#0e9aa7', '#2878d6', '#2f5bea', '#7c4ddb', '#c2408f', '#8a5a2b'];
 
 function Toolbar({ editor, minimal }) {
   const prompt = usePrompt();
@@ -43,6 +56,8 @@ function Toolbar({ editor, minimal }) {
       h2: e.isActive('heading', { level: 2 }), h3: e.isActive('heading', { level: 3 }), bullet: e.isActive('bulletList'),
       ordered: e.isActive('orderedList'), link: e.isActive('link'), mark: e.isActive('highlight'), quote: e.isActive('blockquote'),
       left: e.isActive({ textAlign: 'left' }), center: e.isActive({ textAlign: 'center' }), right: e.isActive({ textAlign: 'right' }),
+      color: e.getAttributes('textStyle').color || null, markColor: e.getAttributes('highlight').color || null,
+      fontSize: e.getAttributes('textStyle').fontSize || null,
     }),
   });
   const btn = (on, onClick, Icon, title) => (
@@ -68,17 +83,41 @@ function Toolbar({ editor, minimal }) {
       {btn(s.italic, () => c().toggleItalic().run(), Italic, 'Курсив (Ctrl+I)')}
       {btn(s.underline, () => c().toggleUnderline().run(), Underline, 'Подчёркнутый (Ctrl+U)')}
       {btn(s.strike, () => c().toggleStrike().run(), Strikethrough, 'Зачёркнутый')}
-      {btn(s.mark, () => c().toggleHighlight().run(), Highlighter, 'Выделить маркером')}
-      <Menu align="left" trigger={({ toggle }) => (
-        <button type="button" className="tb-btn" title="Цвет текста" onMouseDown={(e) => e.preventDefault()} onClick={toggle}><Palette size={16} /></button>
+      <Menu align="left" className="cp-menu" trigger={({ toggle, open }) => (
+        <button type="button" className={`tb-btn tb-color ${open ? 'on' : ''}`} title="Цвет текста" onMouseDown={(e) => e.preventDefault()} onClick={toggle}>
+          <Baseline size={16} /><i style={{ background: s.color || 'var(--text)' }} />
+        </button>
       )}>
-        <div className="color-pop">
-          {COLORS.map((col) => (
-            <button key={col} type="button" className="menu-item" style={{ background: col, padding: 0 }} onMouseDown={(e) => e.preventDefault()}
-              onClick={() => (col === COLORS[0] ? c().unsetColor().run() : c().setColor(col).run())} title={col} />
-          ))}
-        </div>
+        {({ close }) => (
+          <ColorPicker value={s.color} extra={brandColors()} resetLabel="Цвет по умолчанию"
+            onChange={(col) => { if (col) c().setColor(col).run(); else c().unsetColor().run(); close(); }} />
+        )}
       </Menu>
+      <Menu align="left" className="cp-menu" trigger={({ toggle, open }) => (
+        <button type="button" className={`tb-btn tb-color ${s.mark || open ? 'on' : ''}`} title="Выделить маркером" onMouseDown={(e) => e.preventDefault()} onClick={toggle}>
+          <Highlighter size={16} /><i style={{ background: s.markColor || '#fff1a8' }} />
+        </button>
+      )}>
+        {({ close }) => (
+          <ColorPicker value={s.markColor} recentKey="lms-recent-marks" resetLabel="Убрать выделение"
+            extra={['#fff1a8', '#d9f5e3', '#dbe8ff', '#ffe0e0', '#f0e3ff']}
+            onChange={(col) => { if (col) c().setHighlight({ color: col }).run(); else c().unsetHighlight().run(); close(); }} />
+        )}
+      </Menu>
+      {!minimal && (
+        <Menu align="left" trigger={({ toggle, open }) => (
+          <button type="button" className={`tb-btn tb-wide ${s.fontSize || open ? 'on' : ''}`} title="Размер текста" onMouseDown={(e) => e.preventDefault()} onClick={toggle}>
+            <ALargeSmall size={17} /><ChevronDown size={12} />
+          </button>
+        )}>
+          {FONT_SIZES.map((f) => (
+            <button key={f.label} type="button" className={`menu-item ${s.fontSize === f.value ? 'active' : ''}`} onMouseDown={(e) => e.preventDefault()}
+              onClick={() => (f.value ? c().setFontSize(f.value).run() : c().unsetFontSize().run())}>
+              <span style={{ fontSize: f.value || '15px' }}>{f.label}</span>
+            </button>
+          ))}
+        </Menu>
+      )}
       <span className="tb-sep" />
       {btn(s.bullet, () => c().toggleBulletList().run(), List, 'Маркированный список')}
       {btn(s.ordered, () => c().toggleOrderedList().run(), ListOrdered, 'Нумерованный список')}

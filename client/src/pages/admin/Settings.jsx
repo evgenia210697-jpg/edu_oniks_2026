@@ -1,9 +1,19 @@
-import { useState } from 'react';
-import { ImagePlus, X, Mail, CheckCircle2, AlertTriangle, HardDrive } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ImagePlus, X, Mail, CheckCircle2, AlertTriangle, HardDrive, Palette, Check } from 'lucide-react';
 import { api } from '../../api';
 import { useAuth } from '../../App';
-import { useApi, Loading, ErrorBox, Field, useToast } from '../../components/ui';
+import { useApi, Loading, ErrorBox, Field, useToast, Menu } from '../../components/ui';
+import ColorPicker from '../../components/ColorPicker';
 import { Dropzone, useUploader, UploadProgressList } from '../../components/Files';
+
+// Контраст белого текста на фирменном цвете (WCAG): ниже 3 — надписи на кнопках читаются плохо
+function contrastWithWhite(hex) {
+  const n = parseInt(String(hex).replace('#', ''), 16);
+  if (Number.isNaN(n)) return 21;
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+  const L = 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+  return 1.05 / (L + 0.05);
+}
 
 const PRESETS = ['#2F5BEA', '#1565C0', '#0E7C86', '#15935B', '#E0730B', '#D63B3B', '#7C4DDB', '#C2408F', '#1B2430'];
 
@@ -29,10 +39,15 @@ export default function Settings() {
   const { data, error, loading, reload } = useApi('/admin/settings');
   const [f, setF] = useState(null);
   const [busy, setBusy] = useState(false);
+  // несохранённый цвет — только предпросмотр: при уходе со страницы возвращаем сохранённый
+  const savedAccent = useRef(null);
+  savedAccent.current = data?.accentColor;
+  useEffect(() => () => { if (savedAccent.current) document.documentElement.style.setProperty('--accent', savedAccent.current); }, []);
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   const v = f || data;
   const set = (patch) => setF({ ...v, ...patch });
+  const pickAccent = (c) => { set({ accentColor: c }); document.documentElement.style.setProperty('--accent', c); };
 
   const save = async (e) => {
     e.preventDefault(); setBusy(true);
@@ -41,7 +56,7 @@ export default function Settings() {
         platformName: v.platformName, accentColor: v.accentColor, logoFileId: v.logoFileId, coverFileId: v.coverFileId,
         loginText: v.loginText, libraryTitle: v.libraryTitle, librarySubtitle: v.librarySubtitle,
       });
-      setSettings(s); setF(null); reload(); toast('Настройки сохранены');
+      savedAccent.current = s.accentColor; setSettings(s); setF(null); reload(); toast('Настройки сохранены');
     } catch (err) { toast.error(err); } finally { setBusy(false); }
   };
 
@@ -54,12 +69,28 @@ export default function Settings() {
           <Field label="Название платформы" hint="Показывается в меню, на странице входа и во вкладке браузера">
             <input className="input" value={v.platformName} onChange={(e) => set({ platformName: e.target.value })} maxLength={80} />
           </Field>
-          <Field label="Фирменный цвет" hint="Кнопки, ссылки, баннеры">
+          <Field label="Фирменный цвет" hint="Кнопки, ссылки, баннеры. Цвет сразу виден на странице — сохраните, если нравится">
             <div className="color-swatches">
-              {PRESETS.map((c) => <button type="button" key={c} className={`color-swatch ${v.accentColor.toLowerCase() === c.toLowerCase() ? 'on' : ''}`} style={{ background: c }} onClick={() => { set({ accentColor: c }); document.documentElement.style.setProperty('--accent', c); }} aria-label={c} />)}
-              <input type="color" value={v.accentColor} onChange={(e) => { set({ accentColor: e.target.value }); document.documentElement.style.setProperty('--accent', e.target.value); }} style={{ width: 44, height: 34, border: 0, background: 'none', cursor: 'pointer' }} title="Свой цвет" />
-              <span className="small muted">{v.accentColor}</span>
+              {PRESETS.map((c) => (
+                <button type="button" key={c} className={`color-swatch ${v.accentColor.toLowerCase() === c.toLowerCase() ? 'on' : ''}`} style={{ background: c }}
+                  onClick={() => pickAccent(c)} aria-label={c}>{v.accentColor.toLowerCase() === c.toLowerCase() && <Check size={15} strokeWidth={3} />}</button>
+              ))}
+              <Menu align="left" className="cp-menu" trigger={({ toggle, open }) => (
+                <button type="button" className={`btn btn-secondary btn-sm ${open ? 'active' : ''}`} onClick={toggle}><Palette size={15} />Свой цвет</button>
+              )}>
+                {({ close }) => <ColorPicker value={v.accentColor} resetLabel={null} recentKey="lms-recent-accent" onChange={(c) => { if (c) pickAccent(c); close(); }} />}
+              </Menu>
+              <span className="accent-code">{v.accentColor.toUpperCase()}</span>
             </div>
+            <div className="accent-preview">
+              <span className="btn btn-primary btn-sm">Начать обучение</span>
+              <span className="btn btn-soft btn-sm">Продолжить</span>
+              <span className="badge badge-accent">Урок</span>
+              <div className="progress" style={{ width: 120 }}><div style={{ width: '64%' }} /></div>
+            </div>
+            {contrastWithWhite(v.accentColor) < 3 && (
+              <div className="alert alert-warning mt-8"><AlertTriangle size={16} />Цвет слишком светлый: белый текст на кнопках будет плохо читаться. Лучше выбрать оттенок темнее.</div>
+            )}
           </Field>
           <ImageField label="Логотип" hint="Квадратный PNG или SVG, от 128×128" url={v.logo} onChange={(r) => set({ logo: r?.url || null, logoFileId: r?.id || null })} />
           <ImageField wide label="Обложка раздела «Моё обучение»" hint="Широкая картинка ~1600×500. Без обложки используется фирменный цвет" url={v.cover} onChange={(r) => set({ cover: r?.url || null, coverFileId: r?.id || null })} />

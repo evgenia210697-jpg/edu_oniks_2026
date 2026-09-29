@@ -1,12 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useState, Component } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { api } from './api';
-import { Loading } from './components/ui';
+import { Spinner } from './components/ui';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Library from './pages/student/Library';
 import CoursePage from './pages/student/CoursePage';
 import LessonPage from './pages/student/LessonPage';
+import Certificate from './pages/student/Certificate';
 import Profile from './pages/Profile';
 import AdminCourses from './pages/admin/Courses';
 import CourseEditor from './pages/admin/CourseEditor';
@@ -72,7 +73,7 @@ export default function App() {
     logout: async () => { await api.post('/auth/logout').catch(() => {}); setState((s) => ({ ...s, user: null })); },
   };
 
-  if (state.loading) return <Loading />;
+  if (state.loading) return <div className="loading-page"><Spinner /></div>;
   if (!state.user) {
     return (
       <AuthCtx.Provider value={ctx}>
@@ -97,6 +98,7 @@ export default function App() {
             <Route path="/" element={<Library />} />
             <Route path="/course/:courseId" element={<CoursePage />} />
             <Route path="/course/:courseId/lesson/:lessonId" element={<LessonPage />} />
+            <Route path="/course/:courseId/certificate" element={<Certificate />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin/courses" element={adminOnly(<AdminCourses />)} />
             <Route path="/admin/courses/:courseId" element={adminOnly(<CourseEditor />)} />

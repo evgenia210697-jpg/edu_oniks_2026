@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  GraduationCap, BookOpen, LayoutGrid, Users, ClipboardCheck, Settings as Cog, Bell, Menu as Burger, LogOut, User, CheckCheck,
+  GraduationCap, BookOpen, LayoutGrid, Users, ClipboardCheck, Settings as Cog, Bell, Menu as Burger, LogOut, User, CheckCheck, Search,
 } from 'lucide-react';
+import CommandPalette from './CommandPalette';
 import { useAuth } from '../App';
 import { api } from '../api';
 import { Avatar, Menu, MenuItem } from './ui';
@@ -66,7 +67,32 @@ export default function Layout({ children }) {
   const isStaff = user.role === 'admin' || user.role === 'curator';
   const isAdmin = user.role === 'admin';
 
+  const [searchOpen, setSearchOpen] = useState(false);
+  const mainRef = useRef(null);
+  const prevSection = useRef(null);
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
+
   useEffect(() => { setOpen(false); }, [loc.pathname]);
+  // Плавное появление при переходе в другой раздел (внутри одного курса/урока — без анимации всей страницы)
+  useEffect(() => {
+    const section = loc.pathname.replace(/\/lesson\/\d+$/, '/lesson').replace(/^(\/admin\/courses\/\d+)\/.*$/, '$1');
+    const el = mainRef.current;
+    if (el && prevSection.current !== null && prevSection.current !== section) {
+      el.classList.remove('route-in');
+      void el.offsetWidth; // перезапуск анимации
+      el.classList.add('route-in');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+    prevSection.current = section;
+  }, [loc.pathname]);
+  // Ctrl+K / ⌘K — быстрый поиск
+  useEffect(() => {
+    const h = (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K' || e.code === 'KeyK')) { e.preventDefault(); setSearchOpen((v) => !v); }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
   useEffect(() => {
     if (!isStaff) return;
     const load = () => api.get('/admin/submissions/count').then((r) => setPending(r.pending)).catch(() => {});
@@ -118,6 +144,9 @@ export default function Layout({ children }) {
       <div className="main">
         <header className="topbar">
           <button className="btn btn-ghost btn-icon burger" onClick={() => setOpen(true)} aria-label="Меню"><Burger size={20} /></button>
+          <button type="button" className="search-trigger" onClick={() => setSearchOpen(true)} aria-label="Поиск по платформе">
+            <Search size={17} /><span className="st-text">Поиск</span><kbd>{isMac ? '⌘' : 'Ctrl'} K</kbd>
+          </button>
           <div className="spacer" />
           <Notifications />
           <Menu trigger={({ toggle }) => (
@@ -132,7 +161,8 @@ export default function Layout({ children }) {
             <MenuItem icon={LogOut} danger onClick={logout}>Выйти</MenuItem>
           </Menu>
         </header>
-        <main className="content">{children}</main>
+        <main className="content" ref={mainRef}>{children}</main>
+        {searchOpen && <CommandPalette onClose={() => setSearchOpen(false)} />}
       </div>
     </div>
   );

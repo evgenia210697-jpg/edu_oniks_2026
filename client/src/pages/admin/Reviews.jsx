@@ -32,7 +32,7 @@ export default function Reviews() {
         )}
       </div>
       <div className="card">
-        {loading ? <Loading /> : error ? <ErrorBox error={error} onRetry={reload} /> : list.length === 0 ? (
+        {loading ? <Loading variant="inline" /> : error ? <ErrorBox error={error} onRetry={reload} /> : list.length === 0 ? (
           <Empty icon={ClipboardCheck} title={status === 'pending' ? 'Все работы проверены' : 'Здесь пока пусто'} text={status === 'pending' ? 'Новые ответы учеников появятся здесь. Вы также получите уведомление.' : ''} />
         ) : (
           <div className="table-wrap">

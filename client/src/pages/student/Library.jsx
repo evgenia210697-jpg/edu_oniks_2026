@@ -53,7 +53,7 @@ export default function Library() {
             : 'Когда администратор откроет вам курс, он появится здесь. Вы также получите уведомление.'} />
         </div>
       ) : (
-        <div className="course-grid">
+        <div className="course-grid stagger">
           {list.map((c) => {
             const started = c.progress > 0 || c.startedAt;
             return (
@@ -61,7 +61,7 @@ export default function Library() {
                 <CourseCover course={c} />
                 <div className="course-body">
                   <div className="row small" style={{ gap: 6, color: c.completedAt ? 'var(--success)' : 'var(--accent)', fontWeight: 600 }}>
-                    {c.completedAt ? <><CheckCircle2 size={15} />Курс пройден</> : <>{c.progress}% пройдено</>}
+                    {c.completedAt ? <><CheckCircle2 size={15} />Курс пройден · есть сертификат</> : <>{c.progress}% пройдено</>}
                   </div>
                   <div className="course-title">{c.title}</div>
                   {c.description && <div className="course-desc">{c.description}</div>}

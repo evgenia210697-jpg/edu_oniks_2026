@@ -152,6 +152,45 @@ router.post('/notifications/read', auth.requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+/* ---------- Быстрый поиск (Ctrl+K) ---------- */
+// Ищем по названиям курсов и занятий, а для кураторов и админов — ещё и по сотрудникам.
+// Сравнение в JS: встроенный LOWER() в SQLite не понимает кириллицу.
+router.get('/search', auth.requireAuth, (req, res) => {
+  const q = str(req.query.q, 100).toLowerCase().replace(/ё/g, 'е');
+  const has = (...parts) => parts.join(' ').toLowerCase().replace(/ё/g, 'е').includes(q);
+  const user = req.user;
+  const isAdmin = user.role === 'admin';
+  const staff = auth.isStaff(user);
+  const out = { courses: [], lessons: [], users: [] };
+  if (!q) return res.json(out);
+
+  const courses = isAdmin
+    ? db.prepare('SELECT id, title, description, status FROM courses ORDER BY sort, id').all()
+    : db.prepare(`SELECT c.id, c.title, c.description, c.status FROM courses c JOIN enrollments e ON e.course_id = c.id
+        WHERE e.user_id = ? AND c.status = 'published' ORDER BY c.sort, c.id`).all(user.id);
+  const courseById = new Map(courses.map((c) => [c.id, c]));
+  out.courses = courses.filter((c) => has(c.title, c.description)).slice(0, 6)
+    .map((c) => ({ id: c.id, title: c.title, sub: c.status === 'published' ? 'Курс' : 'Курс · черновик', link: isAdmin ? `/admin/courses/${c.id}` : `/course/${c.id}` }));
+
+  if (courses.length) {
+    const ids = courses.map((c) => c.id);
+    const lessons = db.prepare(`SELECT id, course_id, type, title, status, published IS NOT NULL AS pub FROM lessons
+      WHERE course_id IN (${ids.map(() => '?').join(',')}) ORDER BY sort, id`).all(...ids)
+      .filter((l) => isAdmin || (l.status === 'published' && l.pub));
+    const typeName = { lecture: 'Урок', assignment: 'Задание', test: 'Тест' };
+    out.lessons = lessons.filter((l) => has(l.title, typeName[l.type])).slice(0, 8).map((l) => ({
+      id: l.id, type: l.type, title: l.title, sub: `${typeName[l.type] || 'Занятие'} · ${courseById.get(l.course_id)?.title || ''}`,
+      link: isAdmin ? `/admin/courses/${l.course_id}/lesson/${l.id}` : `/course/${l.course_id}/lesson/${l.id}`,
+    }));
+  }
+  if (staff) {
+    out.users = db.prepare('SELECT id, name, email, department, position, avatar_file_id FROM users ORDER BY name').all()
+      .filter((u) => has(u.name, u.email, u.department, u.position)).slice(0, 6)
+      .map((u) => ({ id: u.id, title: u.name, sub: [u.department, u.email].filter(Boolean).join(' · '), avatar: u.avatar_file_id ? `/api/files/${u.avatar_file_id}` : null, link: `/admin/users/${u.id}` }));
+  }
+  res.json(out);
+});
+
 /* ---------- Настройки платформы ---------- */
 router.get('/admin/settings', auth.requireRole('admin'), (_req, res) => {
   res.json({ ...getSettings(), mailEnabled: mailEnabled(), maxUploadMb: config.MAX_UPLOAD_MB });

@@ -202,6 +202,11 @@ export function demoNotice(text) {
   setTimeout(() => box.remove(), 4200);
 }
 
+function blockUnsupported() {
+  // в просмотрщике claude.ai печать недоступна — объясняем, что в рабочей версии она есть
+  window.print = () => demoNotice('В демо-версии печать отключена. В рабочей платформе откроется окно печати — там можно сохранить сертификат в PDF.');
+}
+
 function watchClicks(navigate) {
   document.addEventListener('click', (e) => {
     if (e.defaultPrevented || e.button !== 0) return;
@@ -261,5 +266,6 @@ export async function boot({ navigateRef }) {
   globalThis.__DEMO.dirty = true; // сохранить, если сид дописал данные
   patchNetwork();
   watchDom();
+  blockUnsupported();
   watchClicks((to) => navigateRef.current?.(to));
 }

@@ -30,7 +30,7 @@ export function PickUsersModal({ title, exclude = [], onClose, onPick, okLabel =
           </select>
         )}
       </div>
-      {loading ? <Loading /> : list.length === 0 ? <div className="empty small">Никого не найдено. Новых сотрудников добавляют в разделе «Сотрудники».</div> : (
+      {loading ? <Loading variant="inline" /> : list.length === 0 ? <div className="empty small">Никого не найдено. Новых сотрудников добавляют в разделе «Сотрудники».</div> : (
         <div className="card table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
           <table className="table">
             <thead><tr>

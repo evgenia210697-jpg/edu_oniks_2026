@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { UserPlus, Download, Search, Users as UsersIcon, Activity, TrendingUp, Clock, Award, FileSpreadsheet, BookPlus, Copy, CheckCircle2 } from 'lucide-react';
 import { api } from '../../api';
 import { useAuth } from '../../App';
@@ -189,7 +189,10 @@ export default function Users() {
   const [q, setQ] = useState('');
   const [dept, setDept] = useState('');
   const [sel, setSel] = useState([]);
-  const [modal, setModal] = useState(null);
+  const [params, setParams] = useSearchParams();
+  const [modal, setModalState] = useState(() => (params.get('new') === '1' ? { type: 'new' } : null));
+  const setModal = (m) => { setModalState(m); if (!m && params.get('new')) setParams({}, { replace: true }); };
+  useEffect(() => { if (params.get('new') === '1') setModalState({ type: 'new' }); }, [params]);
 
   const departments = useMemo(() => [...new Set((data || []).map((u) => u.department).filter(Boolean))].sort(), [data]);
   if (loading && !data) return <Loading />;
@@ -211,7 +214,7 @@ export default function Users() {
       </div>
 
       {s && (
-        <div className="stats">
+        <div className="stats stagger">
           <div className="card stat"><div className="stat-label"><span className="stat-icon"><UsersIcon size={16} /></span>Учеников</div><div className="stat-value">{s.students}</div><div className="stat-note">+{s.newStudents30} за 30 дней</div></div>
           <div className="card stat"><div className="stat-label"><span className="stat-icon"><Activity size={16} /></span>Активны за 7 дней</div><div className="stat-value">{s.active7}</div><div className="stat-note">из {s.students}</div></div>
           <div className="card stat"><div className="stat-label"><span className="stat-icon"><TrendingUp size={16} /></span>Средний прогресс</div><div className="stat-value">{s.avgProgress}%</div><div className="stat-note">завершено курсов: {s.completedCourses}</div></div>

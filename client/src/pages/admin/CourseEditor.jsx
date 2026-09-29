@@ -4,7 +4,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  ChevronLeft, Eye, Plus, MoreHorizontal, Pencil, ArrowUp, ArrowDown, Trash2, GripVertical, Layers, Users as UsersIcon, Settings2, FolderInput, CheckCircle2, EyeOff,
+  ChevronLeft, Eye, Plus, MoreHorizontal, Pencil, ArrowUp, ArrowDown, Trash2, GripVertical, Layers, Users as UsersIcon, Settings2, FolderInput, CheckCircle2, EyeOff, Send,
 } from 'lucide-react';
 import { api } from '../../api';
 import { useApi, Loading, ErrorBox, Menu, MenuItem, useConfirm, usePrompt, useToast, TypeIcon, Empty, Hero } from '../../components/ui';
@@ -12,6 +12,7 @@ import LessonEditor from './LessonEditor';
 import { CreateLessonModal } from './LessonSettings';
 import CourseStudents from './CourseStudents';
 import CourseSettings from './CourseSettings';
+import { plural } from '../../utils';
 
 function LessonItem({ l, active, onClick, modules, onMoveTo }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `l-${l.id}` });
@@ -124,6 +125,8 @@ function Outline({ course, modules, setModules, activeId, onSelect, reloadCourse
 export default function CourseEditor() {
   const { courseId, tab: tabParam, lessonId } = useParams();
   const nav = useNavigate();
+  const toast = useToast();
+  const confirm = useConfirm();
   const { data, error, loading, reload, setData } = useApi(`/admin/courses/${courseId}`);
   const tab = tabParam === 'students' || tabParam === 'settings' ? tabParam : 'constructor';
   const activeId = lessonId ? Number(lessonId) : null;
@@ -144,6 +147,21 @@ export default function CourseEditor() {
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   const course = data;
   const allLessons = course.modules.flatMap((m) => m.lessons);
+  const publishedCount = allLessons.filter((l) => l.status === 'published').length;
+
+  const publishCourse = async () => {
+    if (!publishedCount) {
+      const ok = await confirm({ title: 'Опубликовать курс?', text: 'В курсе ещё нет опубликованных занятий — ученики увидят пустой курс. Опубликуйте занятия кнопкой «Опубликовать занятие» в редакторе.', ok: 'Всё равно опубликовать' });
+      if (!ok) return;
+    }
+    try {
+      const c = await api.put(`/admin/courses/${course.id}`, { status: 'published' });
+      setData((d) => ({ ...d, ...c }));
+      toast(publishedCount < allLessons.length
+        ? `Курс опубликован. Ученикам доступно ${publishedCount} из ${allLessons.length} занятий — черновики они не видят`
+        : 'Курс опубликован — ученики, которым он открыт, уже его видят');
+    } catch (e) { toast.error(e); }
+  };
 
   return (
     <div>
@@ -151,8 +169,13 @@ export default function CourseEditor() {
         back={<Link to="/admin/courses" className="btn btn-sm"><ChevronLeft size={16} />Все курсы</Link>}>
         <div className="hero-meta">
           <span className="hero-chip">{course.status === 'published' ? <><CheckCircle2 size={13} />Курс опубликован</> : <><EyeOff size={13} />Курс-черновик — ученики его не видят</>}</span>
-          <span className="hero-chip">{allLessons.length} занятий · опубликовано {allLessons.filter((l) => l.status === 'published').length}</span>
+          <span className="hero-chip">{allLessons.length} {plural(allLessons.length, 'занятие', 'занятия', 'занятий')} · опубликовано {allLessons.filter((l) => l.status === 'published').length}</span>
         </div>
+        {course.status !== 'published' && (
+          <button type="button" className="btn mt-16 pulse" style={{ background: '#fff', color: 'var(--accent)' }} onClick={publishCourse}>
+            <Send size={16} />Опубликовать курс
+          </button>
+        )}
       </Hero>
       <div className="row row-wrap" style={{ alignItems: 'flex-start' }}>
         <div className="tabs">

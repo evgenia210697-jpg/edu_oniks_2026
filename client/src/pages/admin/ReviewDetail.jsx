@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronDown, ChevronUp, CheckCircle2, RotateCcw, MessageSquare, Star } from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronUp, ChevronRight, CheckCircle2, RotateCcw, MessageSquare, Star, PartyPopper } from 'lucide-react';
 import { api } from '../../api';
 import { useApi, Loading, ErrorBox, Avatar, SubmissionBadge, useToast } from '../../components/ui';
 import { BlocksView } from '../../blocks/BlockView';
 import { Thread, Composer } from '../../components/Thread';
-import { fmtDate } from '../../utils';
+import { fmtDate, plural } from '../../utils';
 
 export default function ReviewDetail() {
   const { id } = useParams();
@@ -15,6 +15,8 @@ export default function ReviewDetail() {
   const [showTask, setShowTask] = useState(false);
   const [mode, setMode] = useState('accept');
   const [points, setPoints] = useState('');
+  const [queue, setQueue] = useState(null); // что осталось проверить после решения по этой работе
+  useEffect(() => { setQueue(null); setMode('accept'); setPoints(''); setShowTask(false); }, [id]);
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   const s = data;
@@ -26,6 +28,10 @@ export default function ReviewDetail() {
       toast(mode === 'accept' ? 'Работа принята' : 'Работа отправлена на доработку');
       window.dispatchEvent(new Event('lms:refresh-pending'));
       reload();
+      api.get('/admin/submissions?status=pending').then((list) => {
+        const rest = list.filter((x) => x.id !== s.id);
+        setQueue({ left: rest.length, next: rest[0] || null });
+      }).catch(() => {});
     } catch (e) { toast.error(e); return false; }
   };
   const comment = async ({ body, files }) => {
@@ -34,7 +40,24 @@ export default function ReviewDetail() {
 
   return (
     <div>
-      <div className="row mb-16"><button className="btn btn-ghost btn-sm" onClick={() => nav(-1)}><ChevronLeft size={16} />Назад</button></div>
+      <div className="row mb-16"><Link to="/admin/reviews" className="btn btn-ghost btn-sm"><ChevronLeft size={16} />Все работы</Link></div>
+      {queue && (
+        <div className={`next-bar ${queue.next ? '' : 'done'}`}>
+          {queue.next ? (
+            <>
+              <CheckCircle2 size={20} />
+              <div className="flex-1"><b>Готово.</b> В очереди ещё {queue.left} {plural(queue.left, 'работа', 'работы', 'работ')}. Следующая: {queue.next.user.name} — «{queue.next.lesson.title}»</div>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => nav(`/admin/reviews/${queue.next.id}`)}>Следующая работа<ChevronRight size={16} /></button>
+            </>
+          ) : (
+            <>
+              <PartyPopper size={20} />
+              <div className="flex-1"><b>Все работы проверены.</b> Новые ответы появятся в разделе «Проверка заданий», а вы получите уведомление.</div>
+              <Link to="/admin/reviews" className="btn btn-secondary btn-sm">К списку</Link>
+            </>
+          )}
+        </div>
+      )}
       <div className="review-layout">
         <div style={{ minWidth: 0 }}>
           <div className="card card-pad">
