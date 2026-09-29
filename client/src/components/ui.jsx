@@ -306,30 +306,12 @@ export function SubmissionBadge({ status }) {
   return null;
 }
 
-/** Контурный рисунок шестигранной гайки — фирменный мотив платформы (как на техническом чертеже) */
-export function NutMark({ className = '', size = 320 }) {
-  const hex = Array.from({ length: 6 }, (_, i) => {
-    const a = (Math.PI / 3) * i + Math.PI / 6;
-    return `${(100 + 88 * Math.cos(a)).toFixed(2)},${(100 + 88 * Math.sin(a)).toFixed(2)}`;
-  }).join(' ');
-  return (
-    <svg className={`nut-mark ${className}`} width={size} height={size} viewBox="0 0 200 200" fill="none" aria-hidden="true">
-      <polygon points={hex} stroke="currentColor" strokeWidth="1.4" />
-      <circle cx="100" cy="100" r="76" stroke="currentColor" strokeWidth=".8" strokeDasharray="2 5" />
-      <circle cx="100" cy="100" r="46" stroke="currentColor" strokeWidth="1.4" />
-      <circle cx="100" cy="100" r="38" stroke="currentColor" strokeWidth=".8" />
-      <path d="M100 4v26M100 170v26M4 100h26M170 100h26" stroke="currentColor" strokeWidth=".8" />
-      <path d="M62 100a38 38 0 0 1 38-38" stroke="currentColor" strokeWidth=".8" strokeDasharray="1 3" />
-    </svg>
-  );
-}
-
 export function Hero({ title, sub, cover, back, children, kicker }) {
   return (
     <div className={`hero ${cover ? 'has-cover' : ''}`} style={cover ? { '--hero-img': `url("${cover}")` } : undefined}>
-      {!cover && <NutMark className="hero-nut" />}
+      {!cover && <><div className="hero-deco" /><div className="hero-deco two" /></>}
       {back && <div className="hero-back">{back}</div>}
-      <div className="hero-inner" style={{ marginTop: back ? 40 : 0 }}>
+      <div style={{ marginTop: back ? 34 : 0 }}>
         {kicker && <div className="hero-kicker">{kicker}</div>}
         <h1>{title}</h1>
         {sub && <div className="hero-sub">{sub}</div>}

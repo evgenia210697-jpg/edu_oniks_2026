@@ -36,32 +36,18 @@ export default function CoursePage() {
   const c = data;
   const firstId = c.modules[0]?.lessons[0]?.id;
   const target = c.nextLessonId || firstId;
+  const nextLesson = c.modules.flatMap((m) => m.lessons).find((l) => l.id === target);
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto' }}>
+    <div style={{ maxWidth: 1180, margin: '0 auto' }}>
       {c.preview && <div className="preview-banner"><Eye size={17} />Режим предпросмотра: вы видите курс глазами ученика, прогресс не сохраняется.</div>}
       <Hero title={c.title} sub={c.description} cover={c.cover}
         back={<Link to={c.preview ? `/admin/courses/${c.id}` : '/'} className="btn btn-sm"><ChevronLeft size={16} />{c.preview ? 'К редактору' : 'Моё обучение'}</Link>}>
-        <div className="hero-meta">
-          {c.counts.lecture > 0 && <span className="hero-chip"><GraduationCap size={13} />{c.counts.lecture} {plural(c.counts.lecture, 'урок', 'урока', 'уроков')}</span>}
-          {c.counts.assignment > 0 && <span className="hero-chip"><PenTool size={13} />{c.counts.assignment} {plural(c.counts.assignment, 'задание', 'задания', 'заданий')}</span>}
-          {c.counts.test > 0 && <span className="hero-chip"><ListChecks size={13} />{c.counts.test} {plural(c.counts.test, 'тест', 'теста', 'тестов')}</span>}
-          {c.points > 0 && <span className="hero-chip"><Star size={13} />{c.points} {plural(c.points, 'балл', 'балла', 'баллов')}</span>}
-        </div>
-        <div className="hero-progress"><div style={{ width: `${c.progress}%` }} /></div>
-        <div className="row mt-16" style={{ flexWrap: 'wrap' }}>
-          {target && (
-            <button className="btn btn-primary" onClick={() => nav(`/course/${c.id}/lesson/${target}`)}>
-              <PlayCircle size={18} />{c.completedAt ? 'Открыть материалы' : c.progress > 0 ? 'Продолжить обучение' : 'Начать обучение'}
-            </button>
-          )}
-          {c.completedAt && !c.preview && (
-            <Link to={`/course/${c.id}/certificate`} className="btn btn-on-dark"><Award size={17} />Сертификат</Link>
-          )}
-          <span className="mono" style={{ color: '#b8bdc6', fontSize: 13 }}>Пройдено {c.completed} / {c.total}</span>
-        </div>
       </Hero>
 
+      <div className="course-layout">
+      <div className="course-main">
+      <div className="section-title">Программа курса</div>
       {c.total === 0 && <div className="card card-pad muted">В курсе пока нет опубликованных занятий.</div>}
 
       {c.modules.map((m, mi) => {
@@ -110,6 +96,32 @@ export default function CoursePage() {
           </div>
         </div>
       )}
+      </div>
+      <aside className="course-aside">
+        <div className="card progress-card">
+          <div className="pc-top">
+            <Ring value={c.completedAt ? 100 : c.progress} size={84} stroke={7} label={<span className="mono" style={{ fontSize: 17 }}>{c.completedAt ? 100 : c.progress}%</span>} />
+            <div>
+              <div className="pc-title">{c.completedAt ? 'Курс пройден' : c.progress > 0 ? 'Ваш прогресс' : 'Готовы начать?'}</div>
+              <div className="small muted">Пройдено {c.completed} из {c.total} {plural(c.total, 'занятия', 'занятий', 'занятий')}</div>
+            </div>
+          </div>
+          {target && (
+            <button className="btn btn-primary btn-block btn-lg" onClick={() => nav(`/course/${c.id}/lesson/${target}`)}>
+              <PlayCircle size={18} />{c.completedAt ? 'Открыть материалы' : c.progress > 0 ? 'Продолжить обучение' : 'Начать обучение'}
+            </button>
+          )}
+          {nextLesson && !c.completedAt && <div className="pc-next">Далее: <b>{nextLesson.title}</b></div>}
+          {c.completedAt && !c.preview && <Link to={`/course/${c.id}/certificate`} className="btn btn-secondary btn-block mt-8"><Award size={16} />Сертификат</Link>}
+          <div className="pc-stats">
+            {c.counts.lecture > 0 && <div><GraduationCap size={15} /><span>Уроки</span><b className="mono">{c.counts.lecture}</b></div>}
+            {c.counts.test > 0 && <div><ListChecks size={15} /><span>Тесты</span><b className="mono">{c.counts.test}</b></div>}
+            {c.counts.assignment > 0 && <div><PenTool size={15} /><span>Задания</span><b className="mono">{c.counts.assignment}</b></div>}
+            <div><Star size={15} /><span>Баллы</span><b className="mono">{c.points}</b></div>
+          </div>
+        </div>
+      </aside>
+      </div>
     </div>
   );
 }

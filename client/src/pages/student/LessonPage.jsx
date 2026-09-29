@@ -1,47 +1,73 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Eye, CheckCircle2, Clock, RotateCcw, Star, Timer, ListChecks, Lock, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Eye, CheckCircle2, Clock, RotateCcw, Star, Timer, ListChecks, Lock, ArrowLeft, PanelLeftClose, PanelLeftOpen, ListTree, Award, GraduationCap } from 'lucide-react';
 import { api } from '../../api';
-import { useApi, Loading, ErrorBox, Progress, StatusIcon, useToast, TypeIcon } from '../../components/ui';
+import { useApi, Loading, ErrorBox, Progress, StatusIcon, useToast, TypeIcon, Avatar } from '../../components/ui';
+import { useAuth } from '../../App';
+import { Notifications } from '../../components/Layout';
 import { BlocksView } from '../../blocks/BlockView';
 import { TestRun, TestResult } from '../../blocks/TestRunner';
 import { Composer, Thread } from '../../components/Thread';
 import { TYPE_LABEL, fmtDate, plural } from '../../utils';
 import { celebrate } from '../../components/celebrate';
 
-function Sidebar({ data, courseId, lessonId }) {
+/** Программа курса в режиме прохождения: модули, занятия, статусы */
+function ProgramNav({ data, courseId, lessonId, onNavigate }) {
   const currentModule = data.modules.find((m) => m.lessons.some((l) => l.id === lessonId))?.id;
   const [open, setOpen] = useState(() => ({ [currentModule]: true }));
-  const [mobileOpen, setMobileOpen] = useState(false);
   useEffect(() => { setOpen((o) => ({ ...o, [currentModule]: true })); }, [currentModule]);
   return (
-    <aside className="card player-side" style={{ padding: 14 }}>
-      <div className="row" style={{ cursor: 'pointer' }} onClick={() => setMobileOpen(!mobileOpen)}>
-        <div className="bold flex-1">Программа курса</div>
-        <span className="small muted">{data.progress}%</span>
-      </div>
-      <div className="mt-8 mb-8"><Progress value={data.progress} /></div>
-      {data.modules.map((m) => (
-        <div key={m.id}>
-          <div className="side-module" onClick={() => setOpen({ ...open, [m.id]: !open[m.id] })}>
-            <span className="flex-1">{m.title}</span>
-            <span className="xs muted">{m.completed}/{m.lessons.length}</span>
-            <ChevronDown size={15} className="muted chev" style={{ transform: open[m.id] ? 'rotate(180deg)' : 'none' }} />
-          </div>
+    <nav className="prog" aria-label="Программа курса">
+      {data.modules.map((m, mi) => (
+        <div key={m.id} className={`prog-module ${m.id === currentModule ? 'current' : ''}`}>
+          <button type="button" className="prog-module-head" onClick={() => setOpen({ ...open, [m.id]: !open[m.id] })} aria-expanded={!!open[m.id]}>
+            <span className="prog-mnum">{String(mi + 1).padStart(2, '0')}</span>
+            <span className="prog-mtitle">{m.title}</span>
+            <span className="prog-mcount">{m.completed}/{m.lessons.length}</span>
+            <ChevronDown size={16} className="chev" style={{ transform: open[m.id] ? 'rotate(180deg)' : 'none' }} />
+          </button>
           <div className={`collapse ${open[m.id] ? '' : 'closed'}`}><div className="collapse-inner">
-          {m.lessons.map((l) => (l.locked && !data.preview
-            ? <div key={l.id} className="side-lesson" style={{ opacity: .55 }}><StatusIcon locked /><span className="ellipsis">{l.title}</span></div>
-            : (
-              <Link key={l.id} to={`/course/${courseId}/lesson/${l.id}`} className={`side-lesson ${l.id === lessonId ? 'current' : ''}`}>
-                <StatusIcon status={l.status} /><span className="ellipsis flex-1">{l.title}</span>
-              </Link>
-            )))}
+            <div className="prog-lessons">
+              {m.lessons.map((l) => {
+                const inner = (
+                  <>
+                    <StatusIcon status={l.status} locked={l.locked && !data.preview} />
+                    <span className="prog-ltext">
+                      <span className="prog-ltitle">{l.title}</span>
+                      <span className="prog-lmeta">{TYPE_LABEL[l.type]}{l.maxPoints > 0 ? ` · ${l.maxPoints} ${plural(l.maxPoints, 'балл', 'балла', 'баллов')}` : ''}{l.status === 'pending' ? ' · на проверке' : l.status === 'returned' ? ' · на доработке' : ''}</span>
+                    </span>
+                  </>
+                );
+                return l.locked && !data.preview
+                  ? <div key={l.id} className="prog-lesson locked" title="Откроется после выполнения предыдущих занятий">{inner}</div>
+                  : <Link key={l.id} to={`/course/${courseId}/lesson/${l.id}`} onClick={onNavigate} className={`prog-lesson ${l.id === lessonId ? 'current' : ''} ${l.status}`}>{inner}</Link>;
+              })}
+            </div>
           </div></div>
         </div>
       ))}
-    </aside>
+    </nav>
   );
 }
+
+/** Нижняя закреплённая панель навигации — как в плеере Skillspace */
+function PlayerBar({ left, center, right }) {
+  return (
+    <div className="player-bar">
+      <div className="player-bar-inner">
+        <div className="pb-left">{left}</div>
+        <div className="pb-center">{center}</div>
+        <div className="pb-right">{right}</div>
+      </div>
+    </div>
+  );
+}
+
+const PrevButton = ({ data, onClick, label }) => (
+  <button type="button" className="btn btn-secondary" onClick={onClick} disabled={!data.prev && !label} title={data.prev ? data.prev.title : undefined}>
+    <ChevronLeft size={17} /><span className="pb-label">{label || 'Предыдущее'}</span>
+  </button>
+);
 
 function LectureView({ data, onComplete, busy, goPrev }) {
   const pages = data.content.pages?.filter((p) => p.blocks?.length) || [];
@@ -70,7 +96,6 @@ function LectureView({ data, onComplete, busy, goPrev }) {
       <div className="card lesson-paper">
         <div className="lesson-topline">
           <span className="badge badge-accent"><TypeIcon type="lecture" size={13} />Урок</span>
-          {total > 1 && <><span className="small muted">Страница {page + 1} из {total}</span><div className="page-dots">{pages.map((p, i) => <span key={p.id} className={i <= page ? 'on' : ''} />)}</div></>}
           {data.lecture.points > 0 && <span className="badge"><Star size={12} />{data.lecture.points} {plural(data.lecture.points, 'балл', 'балла', 'баллов')}</span>}
           {completed && <span className="badge badge-success"><CheckCircle2 size={12} />Пройдено</span>}
         </div>
@@ -79,16 +104,22 @@ function LectureView({ data, onComplete, busy, goPrev }) {
           ? <div key={`${data.lesson.id}-${page}`} className={`page-in ${dir.current === 'back' ? 'back' : ''}`}><BlocksView blocks={pages[page].blocks} /></div>
           : <p className="muted">В этом уроке пока нет материалов.</p>}
       </div>
-      <div className="player-nav">
-        <button className="btn btn-secondary" onClick={() => { if (page > 0) { setPage(page - 1); top(); } else goPrev(); }} disabled={page === 0 && !data.prev}>
-          <ChevronLeft size={17} />Назад
-        </button>
-        {!last
-          ? <button className="btn btn-primary" onClick={() => { setPage(page + 1); top(); }}>Далее<ChevronRight size={17} /></button>
-          : <button className="btn btn-primary" onClick={onComplete} disabled={busy}>
-            {data.next ? (completed ? 'Следующее занятие' : 'Завершить и продолжить') : (completed ? 'К программе курса' : 'Завершить урок')}<ChevronRight size={17} />
+      <PlayerBar
+        left={page > 0
+          ? <PrevButton data={data} label="Назад" onClick={() => { setPage(page - 1); top(); }} />
+          : <PrevButton data={data} onClick={goPrev} />}
+        center={total > 1 && (
+          <div className="pb-pages">
+            {pages.map((p, i) => <button key={p.id} type="button" className={`pb-dot ${i === page ? 'on' : i < page ? 'done' : ''}`} onClick={() => { setPage(i); top(); }} aria-label={`Страница ${i + 1}`} />)}
+            <span className="mono">{page + 1} / {total}</span>
+          </div>
+        )}
+        right={!last
+          ? <button type="button" className="btn btn-primary" onClick={() => { setPage(page + 1); top(); }}><span className="pb-label">Далее</span><ChevronRight size={17} /></button>
+          : <button type="button" className="btn btn-primary" onClick={onComplete} disabled={busy}>
+            <span className="pb-label">{data.next ? (completed ? 'Следующее занятие' : 'Завершить и продолжить') : (completed ? 'К программе курса' : 'Завершить урок')}</span><ChevronRight size={17} />
           </button>}
-      </div>
+      />
     </>
   );
 }
@@ -253,16 +284,23 @@ export default function LessonPage() {
   const [busy, setBusy] = useState(false);
   useEffect(() => { window.scrollTo({ top: 0 }); }, [id]);
 
-  if (loading && !data) return <Loading />;
+  // пока грузится следующее занятие, оставляем на экране программу и шапку предыдущего
+  const last = useRef(null);
+  if (data && data.lesson.id === id) last.current = data;
+  const shell = (data && data.lesson.id === id) ? data : last.current;
+
   if (error) {
     return (
-      <div className="card">
-        <ErrorBox error={error} onRetry={reload} />
-        <div style={{ textAlign: 'center', paddingBottom: 24 }}><Link to={`/course/${courseId}`} className="btn btn-secondary">К программе курса</Link></div>
-      </div>
+      <PlayerShell data={shell} courseId={courseId} lessonId={id}>
+        <div className="player-content"><div className="card"><ErrorBox error={error} onRetry={reload} />
+          <div style={{ textAlign: 'center', paddingBottom: 24 }}><Link to={`/course/${courseId}`} className="btn btn-secondary">К программе курса</Link></div>
+        </div></div>
+      </PlayerShell>
     );
   }
-  if (!data || data.lesson.id !== id) return <Loading />;
+  if (!data || data.lesson.id !== id) {
+    return <PlayerShell data={shell} courseId={courseId} lessonId={id}><div className="player-content"><Loading variant="inline" /></div></PlayerShell>;
+  }
 
   const goNext = () => {
     window.dispatchEvent(new Event('lms:refresh-notifications'));
@@ -282,28 +320,84 @@ export default function LessonPage() {
     } catch (e) { toast.error(e); } finally { setBusy(false); }
   };
 
+  const flat = data.modules.flatMap((m, mi) => m.lessons.map((l) => ({ ...l, mi })));
+  const pos = flat.findIndex((l) => l.id === id);
+  const done = data.state.status === 'completed';
+  const statusText = { completed: 'Занятие пройдено', pending: 'Ответ на проверке', returned: 'Нужна доработка', failed: 'Тест пока не сдан' }[data.state.status];
+
   return (
-    <div>
-      {data.preview && <div className="preview-banner"><Eye size={17} />Предпросмотр глазами ученика — прогресс не сохраняется.</div>}
-      <div className="row mb-16" style={{ flexWrap: 'wrap' }}>
-        <Link to={`/course/${courseId}`} className="btn btn-ghost btn-sm"><ChevronLeft size={16} />{data.course.title}</Link>
-        <span className="flex-1" />
-        <span className="small muted">{TYPE_LABEL[data.lesson.type]}</span>
-      </div>
-      <div className="player">
-        <div className="player-main">
-          {data.lesson.type === 'lecture' && <LectureView data={data} onComplete={completeLecture} busy={busy} goPrev={goPrev} />}
-          {data.lesson.type === 'test' && <TestView data={data} reload={reload} goNext={goNext} />}
-          {data.lesson.type === 'assignment' && <AssignmentView data={data} reload={reload} goNext={goNext} />}
-          {data.lesson.type !== 'lecture' && (
-            <div className="player-nav">
-              <button className="btn btn-secondary" onClick={goPrev} disabled={!data.prev}><ChevronLeft size={17} />Предыдущее</button>
-              {data.next && <button className="btn btn-secondary" onClick={goNext}>Следующее<ChevronRight size={17} /></button>}
-            </div>
-          )}
+    <PlayerShell data={data} courseId={courseId} lessonId={id}>
+      <div className="player-content">
+        {data.preview && <div className="preview-banner"><Eye size={17} />Предпросмотр глазами ученика — прогресс не сохраняется.</div>}
+        <div className="lesson-crumbs">
+          <span>Модуль {String((flat[pos]?.mi ?? 0) + 1).padStart(2, '0')}</span>
+          <span className="sep" />
+          <span>Занятие {pos + 1} из {flat.length}</span>
+          {statusText && <span className={`crumb-status ${data.state.status}`}>{done ? <CheckCircle2 size={14} /> : null}{statusText}</span>}
         </div>
-        <Sidebar data={data} courseId={courseId} lessonId={id} />
+        {data.lesson.type === 'lecture' && <LectureView data={data} onComplete={completeLecture} busy={busy} goPrev={goPrev} />}
+        {data.lesson.type === 'test' && <TestView data={data} reload={reload} goNext={goNext} />}
+        {data.lesson.type === 'assignment' && <AssignmentView data={data} reload={reload} goNext={goNext} />}
       </div>
+      {data.lesson.type !== 'lecture' && (
+        <PlayerBar
+          left={<PrevButton data={data} onClick={goPrev} />}
+          right={data.next
+            ? <button type="button" className={`btn ${done || data.state.status === 'pending' ? 'btn-primary' : 'btn-secondary'}`} onClick={goNext} title={data.next.title}><span className="pb-label">Следующее занятие</span><ChevronRight size={17} /></button>
+            : <Link to={`/course/${courseId}`} className="btn btn-secondary"><span className="pb-label">К программе курса</span><ChevronRight size={17} /></Link>}
+        />
+      )}
+    </PlayerShell>
+  );
+}
+
+/** Оболочка режима прохождения: шапка с прогрессом, программа слева, материал по центру */
+function PlayerShell({ data, courseId, lessonId, children }) {
+  const { user, settings } = useAuth();
+  const [side, setSide] = useState(() => { try { return localStorage.getItem('lms-player-side') !== 'hidden'; } catch { return true; } });
+  const [drawer, setDrawer] = useState(false);
+  useEffect(() => { setDrawer(false); }, [lessonId]);
+  const toggleSide = () => {
+    if (window.matchMedia('(max-width: 960px)').matches) { setDrawer((v) => !v); return; }
+    setSide((v) => { try { localStorage.setItem('lms-player-side', v ? 'hidden' : 'shown'); } catch { /* */ } return !v; });
+  };
+  const all = data ? data.modules.flatMap((m) => m.lessons) : [];
+  const completed = all.filter((l) => l.status === 'completed').length;
+  const moduleTitle = data?.modules.find((m) => m.lessons.some((l) => l.id === lessonId))?.title;
+  return (
+    <div className={`player-app ${side ? '' : 'side-hidden'} ${drawer ? 'drawer-open' : ''}`}>
+      <header className="player-top">
+        <Link to={`/course/${courseId}`} className="btn btn-ghost btn-sm pt-back" title="Вернуться к странице курса"><ArrowLeft size={17} /><span>К курсу</span></Link>
+        <button type="button" className="btn btn-ghost btn-icon pt-toggle" onClick={toggleSide} title={side ? 'Скрыть программу курса' : 'Показать программу курса'} aria-label="Программа курса">
+          <span className="only-desktop">{side ? <PanelLeftClose size={19} /> : <PanelLeftOpen size={19} />}</span>
+          <span className="only-mobile"><ListTree size={19} /></span>
+        </button>
+        <div className="pt-title">
+          <div className="pt-course">{data?.course.title || ''}</div>
+          {moduleTitle && <div className="pt-module">{moduleTitle}</div>}
+        </div>
+        {data && (
+          <div className="pt-progress" title={`Пройдено ${completed} из ${all.length}`}>
+            <span className="pt-count">{completed} / {all.length}</span>
+            <div className="pt-bar"><div style={{ width: `${data.progress}%` }} /></div>
+            <span className="pt-pct">{data.progress}%</span>
+          </div>
+        )}
+        <Notifications />
+        <Link to="/profile" className="pt-user" title={user.name}><Avatar user={user} size="avatar-sm" /></Link>
+      </header>
+      <aside className="player-aside">
+        <div className="pa-head">
+          <span className="brand-logo">{settings?.logo ? <img src={settings.logo} alt="" /> : <GraduationCap size={17} />}</span>
+          <span className="pa-title">Программа курса</span>
+        </div>
+        {data ? <ProgramNav data={data} courseId={courseId} lessonId={lessonId} onNavigate={() => setDrawer(false)} /> : null}
+        {data && data.progress >= 100 && !data.preview && (
+          <Link to={`/course/${courseId}/certificate`} className="pa-cert"><Award size={18} />Сертификат о прохождении</Link>
+        )}
+      </aside>
+      <div className="player-scrim" onClick={() => setDrawer(false)} />
+      <main className="player-body">{children}</main>
     </div>
   );
 }

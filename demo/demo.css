@@ -1,24 +1,24 @@
 .demo-boot { min-height: 100vh; display: grid; place-items: center; font: 15px/1.5 system-ui, sans-serif; color: #5b6576; background: #f3f5f8; }
-.demo-panel { font-family: var(--font, system-ui); position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 90; width: 300px; max-width: calc(100vw - 32px);
-  background: #fff; color: #16181d; border: 1px solid #dfe4ec; border-radius: 12px; box-shadow: 0 20px 50px -18px rgba(22, 24, 29, .38); padding: 14px 16px; font-size: 13px; line-height: 1.45; }
+.demo-panel { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 90; width: 300px; max-width: calc(100vw - 32px);
+  background: #fff; color: #19212c; border: 1px solid #dfe4ec; border-radius: 14px; box-shadow: 0 12px 32px rgba(20, 32, 60, .16); padding: 14px 16px; font-size: 13px; line-height: 1.45; }
 .demo-panel p { margin: 6px 0 10px; color: #5b6576; }
 .demo-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
 .demo-x { border: 0; background: transparent; font-size: 20px; line-height: 1; cursor: pointer; color: #5b6576; padding: 2px 6px; border-radius: 6px; }
 .demo-x:hover { background: #eef1f6; }
 .demo-logins { display: grid; gap: 6px; }
-.demo-logins button, .demo-reset button { border: 1px solid var(--accent, #e4570f); background: var(--accent, #e4570f); color: var(--on-accent, #fff); border-radius: 9px; padding: 8px 10px; font: inherit; font-weight: 600; cursor: pointer; }
-.demo-logins button + button { background: #fff; color: var(--accent, #e4570f); }
+.demo-logins button, .demo-reset button { border: 1px solid #2f5bea; background: #2f5bea; color: #fff; border-radius: 9px; padding: 8px 10px; font: inherit; font-weight: 600; cursor: pointer; }
+.demo-logins button + button { background: #fff; color: #2f5bea; }
 .demo-logins button:disabled { opacity: .45; cursor: default; }
 .demo-creds { display: grid; gap: 2px; margin-top: 10px; font-size: 12px; color: #5b6576; font-variant-numeric: tabular-nums; user-select: all; }
 .demo-link { margin-top: 10px; border: 0; background: none; padding: 0; color: #5b6576; text-decoration: underline; cursor: pointer; font: inherit; font-size: 12px; }
 .demo-reset { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
 .demo-reset span { width: 100%; }
-.demo-reset button { padding: 5px 10px; background: #fff; color: #16181d; border-color: #dfe4ec; }
+.demo-reset button { padding: 5px 10px; background: #fff; color: #19212c; border-color: #dfe4ec; }
 .demo-reset button.danger { background: #d63b3b; border-color: #d63b3b; color: #fff; }
 .demo-fab { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 90; border: 0; border-radius: 999px; padding: 9px 16px;
-  background: #16181d; color: #fff; font: 600 13px var(--font, system-ui), sans-serif; cursor: pointer; box-shadow: 0 8px 20px rgba(20, 32, 60, .2); }
+  background: #19212c; color: #fff; font: 600 13px system-ui, sans-serif; cursor: pointer; box-shadow: 0 8px 20px rgba(20, 32, 60, .2); }
 .demo-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 100; max-width: min(520px, calc(100vw - 32px));
-  background: #16181d; color: #fff; padding: 12px 16px; border-radius: 10px; font: 14px/1.4 system-ui, sans-serif; box-shadow: 0 10px 28px rgba(0, 0, 0, .2); }
-.demo-fail { max-width: 520px; margin: 80px auto; padding: 0 16px; font-family: system-ui, sans-serif; color: #16181d; }
+  background: #19212c; color: #fff; padding: 12px 16px; border-radius: 10px; font: 14px/1.4 system-ui, sans-serif; box-shadow: 0 10px 28px rgba(0, 0, 0, .2); }
+.demo-fail { max-width: 520px; margin: 80px auto; padding: 0 16px; font-family: system-ui, sans-serif; color: #19212c; }
 @media (max-width: 640px) { .demo-panel { left: 16px; right: 16px; width: auto; } }
 .demo-err { font-size: 13px; color: #8a93a3; word-break: break-word; }

@@ -1,20 +1,14 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, BookOpen, CheckCircle2, PlayCircle, GraduationCap, PenTool, ListChecks } from 'lucide-react';
-import { useApi, Loading, ErrorBox, Empty, Progress, Hero, Avatar, NutMark } from '../../components/ui';
+import { useApi, Loading, ErrorBox, Empty, Progress, Hero, Avatar } from '../../components/ui';
 import { useAuth } from '../../App';
 import { plural } from '../../utils';
 
-/** Обложка курса: картинка или «чертёжная» заглушка с номером курса */
 export function CourseCover({ course }) {
   return (
-    <div className={`course-cover ${course.cover ? '' : 'blank'}`}>
-      {course.cover ? <img src={course.cover} alt="" loading="lazy" /> : (
-        <>
-          <NutMark className="cover-nut" size={170} />
-          <span className="cover-no">КУРС № {String(course.id).padStart(2, '0')}</span>
-        </>
-      )}
+    <div className="course-cover">
+      {course.cover ? <img src={course.cover} alt="" /> : <BookOpen size={42} strokeWidth={1.5} />}
     </div>
   );
 }

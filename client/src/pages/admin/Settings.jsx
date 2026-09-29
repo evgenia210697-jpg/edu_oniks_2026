@@ -15,7 +15,7 @@ function contrastWithWhite(hex) {
   return 1.05 / (L + 0.05);
 }
 
-const PRESETS = ['#E4570F', '#F2B705', '#C62828', '#1F6FEB', '#0E7C86', '#2E7D32', '#5B3FD1', '#8A5A2B', '#16181D'];
+const PRESETS = ['#2F5BEA', '#1565C0', '#0E7C86', '#15935B', '#E0730B', '#D63B3B', '#7C4DDB', '#C2408F', '#1B2430'];
 
 function ImageField({ label, hint, url, onChange, wide }) {
   const { uploads, upload } = useUploader();

@@ -20,7 +20,7 @@ import Settings from './pages/admin/Settings';
 const AuthCtx = createContext(null);
 export const useAuth = () => useContext(AuthCtx);
 
-export const DEFAULT_ACCENT = '#E4570F';
+export const DEFAULT_ACCENT = '#2F5BEA';
 
 // Цвет текста на кнопках фирменного цвета: белый, а на светлых цветах (жёлтый, салатовый) — графитовый
 export function onAccent(hex) {
@@ -107,14 +107,13 @@ export default function App() {
   const adminOnly = (el) => (role === 'admin' ? el : <Navigate to={home} replace />);
   const staffOnly = (el) => (isStaff ? el : <Navigate to="/" replace />);
 
-  return (
-    <AuthCtx.Provider value={ctx}>
+  // Основной интерфейс: меню слева, шапка, страницы разделов
+  const mainUI = (
       <Layout>
         <ErrorBoundary resetKey={location.pathname}>
           <Routes>
             <Route path="/" element={<Library />} />
             <Route path="/course/:courseId" element={<CoursePage />} />
-            <Route path="/course/:courseId/lesson/:lessonId" element={<LessonPage />} />
             <Route path="/course/:courseId/certificate" element={<Certificate />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin/courses" element={adminOnly(<AdminCourses />)} />
@@ -131,6 +130,15 @@ export default function App() {
           </Routes>
         </ErrorBoundary>
       </Layout>
+  );
+
+  return (
+    <AuthCtx.Provider value={ctx}>
+      <Routes>
+        {/* Режим прохождения урока — на весь экран, без меню платформы */}
+        <Route path="/course/:courseId/lesson/:lessonId" element={<ErrorBoundary resetKey={location.pathname}><LessonPage /></ErrorBoundary>} />
+        <Route path="*" element={mainUI} />
+      </Routes>
     </AuthCtx.Provider>
   );
 }

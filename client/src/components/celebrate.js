@@ -3,7 +3,7 @@
 export function celebrate({ count = 140, duration = 2600 } = {}) {
   if (typeof window === 'undefined') return;
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#e4570f';
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#2f5bea';
   const colors = [accent, '#f5b400', '#15935b', '#e0730b', '#c2408f', '#2878d6'];
   const canvas = document.createElement('canvas');
   canvas.className = 'confetti-canvas';

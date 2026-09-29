@@ -9,7 +9,7 @@ import { api } from '../api';
 import { Avatar, Menu, MenuItem } from './ui';
 import { fmtRelative, ROLE_LABEL } from '../utils';
 
-function Notifications() {
+export function Notifications() {
   const nav = useNavigate();
   const [data, setData] = useState({ unread: 0, items: [] });
   const load = useCallback(() => api.get('/notifications').then(setData).catch(() => {}), []);

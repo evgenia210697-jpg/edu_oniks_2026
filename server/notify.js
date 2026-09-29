@@ -25,7 +25,7 @@ function platformName() {
 
 function accentColor() {
   const r = db.prepare("SELECT value FROM settings WHERE key = 'accent_color'").get();
-  return (r && /^#[0-9a-fA-F]{6}$/.test(r.value) && r.value) || '#E4570F';
+  return (r && /^#[0-9a-fA-F]{6}$/.test(r.value) && r.value) || '#2F5BEA';
 }
 
 function escapeHtml(s) {
