@@ -86,8 +86,8 @@ p { margin: 0; }
 .backdrop { display: none; }
 
 @media (max-width: 960px) {
-  .sidebar { transform: translateX(-100%); box-shadow: var(--shadow-lg); }
-  .sidebar.open { transform: none; }
+  .sidebar { transform: translateX(-100%); box-shadow: none; }
+  .sidebar.open { transform: none; box-shadow: var(--shadow-lg); }
   .main { margin-left: 0; }
   .btn.burger { display: inline-flex; }
   .backdrop.show { display: block; position: fixed; inset: 0; background: rgba(15, 20, 30, .35); z-index: 35; }
@@ -534,7 +534,9 @@ p { margin: 0; }
 .tb-sep { width: 1px; background: var(--border); margin: 4px 4px; }
 .rich .ProseMirror { padding: 12px 14px; outline: none; min-height: 60px; }
 .rich.compact .ProseMirror { min-height: 40px; }
-.ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); float: left; color: var(--faint); pointer-events: none; height: 0; }
+.ProseMirror p.is-editor-empty:first-child { position: relative; }
+/* подсказка в одну строку и не влияет на ширину/высоту поля */
+.ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); position: absolute; inset: 0 0 auto 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--faint); pointer-events: none; }
 .color-pop { display: grid; grid-template-columns: repeat(6, 22px); gap: 6px; padding: 8px; }
 .color-pop button { width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(0, 0, 0, .1); cursor: pointer; }
 

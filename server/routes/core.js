@@ -78,7 +78,25 @@ const MIME_BY_EXT = {
   '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime', '.m4v': 'video/mp4',
   '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.oga': 'audio/ogg', '.opus': 'audio/ogg',
   '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
+  '.txt': 'text/plain; charset=utf-8',
+  '.doc': 'application/msword', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xls': 'application/vnd.ms-excel', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.ppt': 'application/vnd.ms-powerpoint', '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.zip': 'application/zip',
 };
+
+// Тип файла определяем по расширению; браузерному заголовку доверяем только для медиа.
+// Всё остальное (в т.ч. .html) отдаётся как бинарный файл — иначе загруженная страница
+// могла бы выполниться в браузере администратора от его имени.
+function detectMime(ext, clientMime) {
+  if (MIME_BY_EXT[ext]) return MIME_BY_EXT[ext];
+  if (/^(video|audio)\/[\w.+-]+$/.test(clientMime || '')) return clientMime;
+  if (/^image\/(png|jpeg|gif|webp|bmp|avif)$/.test(clientMime || '')) return clientMime;
+  return 'application/octet-stream';
+}
+
+// Эти типы безопасно открывать прямо в браузере; остальные только скачиваются
+const INLINE_MIME = /^(video\/|audio\/|image\/|application\/pdf$|text\/plain)/;
 
 router.post('/files', auth.requireAuth, upload.single('file'), (req, res) => {
   if (!req.file) fail(400, 'Файл не получен');
@@ -86,7 +104,7 @@ router.post('/files', auth.requireAuth, upload.single('file'), (req, res) => {
   // multer отдаёт имя в latin1 — переводим в UTF-8
   try { const dec = Buffer.from(name, 'latin1').toString('utf8'); if (!dec.includes('�')) name = dec; } catch { /* ignore */ }
   const ext = path.extname(name).toLowerCase();
-  const mime = MIME_BY_EXT[ext] || req.file.mimetype || 'application/octet-stream';
+  const mime = detectMime(ext, req.file.mimetype);
   let scope = str(req.query.scope || req.body?.scope || 'content', 20);
   if (!auth.isStaff(req.user) && scope === 'content') scope = 'submission';
   if (!['content', 'submission', 'avatar'].includes(scope)) scope = 'content';
@@ -107,11 +125,14 @@ router.get('/files/:id', auth.requireAuth, (req, res) => {
   }
   const abs = path.join(config.UPLOAD_DIR, f.stored_path);
   if (!abs.startsWith(config.UPLOAD_DIR) || !fs.existsSync(abs)) fail(404, 'Файл отсутствует на диске');
-  const disp = req.query.download ? 'attachment' : 'inline';
-  res.setHeader('Content-Disposition', `${disp}; filename="file${path.extname(f.original_name)}"; filename*=UTF-8''${encodeURIComponent(f.original_name)}`);
+  // старые записи могли сохранить тип, присланный браузером (например text/html) — перепроверяем
+  const mime = detectMime(path.extname(f.original_name).toLowerCase(), f.mime);
+  const disp = req.query.download || !INLINE_MIME.test(mime) ? 'attachment' : 'inline';
+  const safeExt = path.extname(f.original_name).replace(/[^.a-zA-Z0-9]/g, '');
+  res.setHeader('Content-Disposition', `${disp}; filename="file${safeExt}"; filename*=UTF-8''${encodeURIComponent(f.original_name)}`);
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  if (f.mime === 'image/svg+xml') res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
-  res.sendFile(abs, { headers: { 'Content-Type': f.mime, 'Cache-Control': 'private, max-age=86400' }, acceptRanges: true });
+  if (mime === 'image/svg+xml') res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+  res.sendFile(abs, { headers: { 'Content-Type': mime, 'Cache-Control': 'private, max-age=86400' }, acceptRanges: true });
 });
 
 /* ---------- Уведомления ---------- */
