@@ -12,6 +12,7 @@ import LessonEditor from './LessonEditor';
 import { CreateLessonModal } from './LessonSettings';
 import CourseStudents from './CourseStudents';
 import CourseSettings from './CourseSettings';
+import { CourseMenu, CourseEditModal } from './CourseActions';
 import { plural } from '../../utils';
 
 function LessonItem({ l, active, onClick, modules, onMoveTo }) {
@@ -127,6 +128,7 @@ export default function CourseEditor() {
   const nav = useNavigate();
   const toast = useToast();
   const confirm = useConfirm();
+  const [editing, setEditing] = useState(false);
   const { data, error, loading, reload, setData } = useApi(`/admin/courses/${courseId}`);
   const tab = tabParam === 'students' || tabParam === 'settings' ? tabParam : 'constructor';
   const activeId = lessonId ? Number(lessonId) : null;
@@ -166,13 +168,18 @@ export default function CourseEditor() {
   return (
     <div>
       <Hero title={course.title} sub={course.description} cover={course.cover}
-        back={<Link to="/admin/courses" className="btn btn-sm"><ChevronLeft size={16} />Все курсы</Link>}>
+        back={<Link to="/admin/courses" className="btn btn-sm"><ChevronLeft size={16} />Все курсы</Link>}
+        kicker={`Курс № ${String(course.id).padStart(2, '0')}`}>
+        <div className="hero-tools">
+          <button type="button" className="btn btn-on-dark btn-sm" onClick={() => setEditing(true)}><Pencil size={15} />Редактировать</button>
+          <CourseMenu course={course} dark onEdit={() => setEditing(true)} onChanged={(c) => setData((d) => ({ ...d, ...c }))} onDeleted={() => nav('/admin/courses')} />
+        </div>
         <div className="hero-meta">
           <span className="hero-chip">{course.status === 'published' ? <><CheckCircle2 size={13} />Курс опубликован</> : <><EyeOff size={13} />Курс-черновик — ученики его не видят</>}</span>
           <span className="hero-chip">{allLessons.length} {plural(allLessons.length, 'занятие', 'занятия', 'занятий')} · опубликовано {allLessons.filter((l) => l.status === 'published').length}</span>
         </div>
         {course.status !== 'published' && (
-          <button type="button" className="btn mt-16 pulse" style={{ background: '#fff', color: 'var(--accent)' }} onClick={publishCourse}>
+          <button type="button" className="btn btn-primary mt-16 pulse" onClick={publishCourse}>
             <Send size={16} />Опубликовать курс
           </button>
         )}
@@ -207,6 +214,7 @@ export default function CourseEditor() {
       )}
       {tab === 'students' && <CourseStudents course={course} />}
       {tab === 'settings' && <CourseSettings course={course} onSaved={(c) => setData((d) => ({ ...d, ...c }))} />}
+      {editing && <CourseEditModal course={course} onClose={() => setEditing(false)} onSaved={(c) => setData((d) => ({ ...d, ...c }))} />}
     </div>
   );
 }

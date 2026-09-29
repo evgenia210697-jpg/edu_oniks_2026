@@ -12,7 +12,7 @@ function getSettings() {
   const s = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   return {
     platformName: s.platform_name || 'Учебный центр',
-    accentColor: s.accent_color || '#2F5BEA',
+    accentColor: s.accent_color || '#E4570F',
     logo: fileUrl(s.logo_file_id),
     logoFileId: s.logo_file_id ? Number(s.logo_file_id) : null,
     loginText: s.login_text ?? 'Корпоративная платформа обучения сотрудников',

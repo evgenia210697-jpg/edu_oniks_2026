@@ -51,14 +51,14 @@ export default function CoursePage() {
         <div className="hero-progress"><div style={{ width: `${c.progress}%` }} /></div>
         <div className="row mt-16" style={{ flexWrap: 'wrap' }}>
           {target && (
-            <button className="btn" style={{ background: '#fff', color: 'var(--accent)' }} onClick={() => nav(`/course/${c.id}/lesson/${target}`)}>
+            <button className="btn btn-primary" onClick={() => nav(`/course/${c.id}/lesson/${target}`)}>
               <PlayCircle size={18} />{c.completedAt ? 'Открыть материалы' : c.progress > 0 ? 'Продолжить обучение' : 'Начать обучение'}
             </button>
           )}
           {c.completedAt && !c.preview && (
-            <Link to={`/course/${c.id}/certificate`} className="btn" style={{ background: 'rgba(255,255,255,.16)', color: '#fff' }}><Award size={17} />Сертификат</Link>
+            <Link to={`/course/${c.id}/certificate`} className="btn btn-on-dark"><Award size={17} />Сертификат</Link>
           )}
-          <span style={{ opacity: .9, fontSize: 14 }}>Пройдено {c.completed} из {c.total}</span>
+          <span className="mono" style={{ color: '#b8bdc6', fontSize: 13 }}>Пройдено {c.completed} / {c.total}</span>
         </div>
       </Hero>
 

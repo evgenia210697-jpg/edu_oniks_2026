@@ -201,7 +201,7 @@ router.put('/admin/settings', auth.requireRole('admin'), (req, res) => {
   const set = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
   const map = {
     platformName: ['platform_name', (v) => str(v, 80)],
-    accentColor: ['accent_color', (v) => (/^#[0-9a-fA-F]{6}$/.test(v) ? v : '#2F5BEA')],
+    accentColor: ['accent_color', (v) => (/^#[0-9a-fA-F]{6}$/.test(v) ? v : '#E4570F')],
     logoFileId: ['logo_file_id', (v) => (int(v) ? String(int(v)) : '')],
     coverFileId: ['cover_file_id', (v) => (int(v) ? String(int(v)) : '')],
     loginText: ['login_text', (v) => str(v, 300)],

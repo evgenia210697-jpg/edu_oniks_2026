@@ -33,7 +33,7 @@ const FONT_SIZES = [
 ];
 // Фирменные цвета компании — первыми в палитре (цвет платформы берётся из настроек)
 const brandColors = () => {
-  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#2f5bea';
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#e4570f';
   return [accent, '#19212c', '#d63b3b', '#15935b', '#e0730b'];
 };
 

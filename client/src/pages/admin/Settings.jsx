@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ImagePlus, X, Mail, CheckCircle2, AlertTriangle, HardDrive, Palette, Check } from 'lucide-react';
 import { api } from '../../api';
-import { useAuth } from '../../App';
+import { useAuth, setAccent } from '../../App';
 import { useApi, Loading, ErrorBox, Field, useToast, Menu } from '../../components/ui';
 import ColorPicker from '../../components/ColorPicker';
 import { Dropzone, useUploader, UploadProgressList } from '../../components/Files';
@@ -15,7 +15,7 @@ function contrastWithWhite(hex) {
   return 1.05 / (L + 0.05);
 }
 
-const PRESETS = ['#2F5BEA', '#1565C0', '#0E7C86', '#15935B', '#E0730B', '#D63B3B', '#7C4DDB', '#C2408F', '#1B2430'];
+const PRESETS = ['#E4570F', '#F2B705', '#C62828', '#1F6FEB', '#0E7C86', '#2E7D32', '#5B3FD1', '#8A5A2B', '#16181D'];
 
 function ImageField({ label, hint, url, onChange, wide }) {
   const { uploads, upload } = useUploader();
@@ -42,12 +42,12 @@ export default function Settings() {
   // несохранённый цвет — только предпросмотр: при уходе со страницы возвращаем сохранённый
   const savedAccent = useRef(null);
   savedAccent.current = data?.accentColor;
-  useEffect(() => () => { if (savedAccent.current) document.documentElement.style.setProperty('--accent', savedAccent.current); }, []);
+  useEffect(() => () => { if (savedAccent.current) setAccent(savedAccent.current); }, []);
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   const v = f || data;
   const set = (patch) => setF({ ...v, ...patch });
-  const pickAccent = (c) => { set({ accentColor: c }); document.documentElement.style.setProperty('--accent', c); };
+  const pickAccent = (c) => { set({ accentColor: c }); setAccent(c); };
 
   const save = async (e) => {
     e.preventDefault(); setBusy(true);
@@ -88,8 +88,8 @@ export default function Settings() {
               <span className="badge badge-accent">Урок</span>
               <div className="progress" style={{ width: 120 }}><div style={{ width: '64%' }} /></div>
             </div>
-            {contrastWithWhite(v.accentColor) < 3 && (
-              <div className="alert alert-warning mt-8"><AlertTriangle size={16} />Цвет слишком светлый: белый текст на кнопках будет плохо читаться. Лучше выбрать оттенок темнее.</div>
+            {contrastWithWhite(v.accentColor) < 2.6 && (
+              <div className="alert alert-info mt-8"><AlertTriangle size={16} />Цвет светлый — надписи на кнопках станут тёмными, чтобы хорошо читаться. Ссылки и активные пункты меню платформа затемнит автоматически.</div>
             )}
           </Field>
           <ImageField label="Логотип" hint="Квадратный PNG или SVG, от 128×128" url={v.logo} onChange={(r) => set({ logo: r?.url || null, logoFileId: r?.id || null })} />
@@ -103,7 +103,7 @@ export default function Settings() {
             <Field label="Подзаголовок"><input className="input" value={v.librarySubtitle} onChange={(e) => set({ librarySubtitle: e.target.value })} /></Field>
           </div>
         </div>
-        <div className="row mt-16"><button className="btn btn-primary btn-lg" disabled={busy || !f}>Сохранить настройки</button>{f && <button type="button" className="btn btn-ghost" onClick={() => { setF(null); document.documentElement.style.setProperty('--accent', data.accentColor); }}>Отменить</button>}</div>
+        <div className="row mt-16"><button className="btn btn-primary btn-lg" disabled={busy || !f}>Сохранить настройки</button>{f && <button type="button" className="btn btn-ghost" onClick={() => { setF(null); setAccent(data.accentColor); }}>Отменить</button>}</div>
       </form>
 
       <div className="card card-pad mt-24">

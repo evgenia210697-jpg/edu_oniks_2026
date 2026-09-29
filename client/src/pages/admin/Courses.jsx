@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Users, Layers, CheckCircle2, EyeOff, PlusCircle } from 'lucide-react';
+import { Plus, Search, Users, Layers, CheckCircle2, EyeOff, PlusCircle, Pencil, ArrowRight } from 'lucide-react';
 import { api } from '../../api';
 import { useApi, Loading, ErrorBox, Modal, Field, useToast, Empty } from '../../components/ui';
 import { CourseCover } from '../student/Library';
 import QuickStart from './QuickStart';
+import { CourseMenu, CourseEditModal } from './CourseActions';
 import { plural } from '../../utils';
 
 export function CreateCourseModal({ onClose }) {
@@ -33,6 +34,7 @@ export function CreateCourseModal({ onClose }) {
 export default function Courses() {
   const { data, error, loading, reload } = useApi('/admin/courses');
   const [q, setQ] = useState('');
+  const [editing, setEditing] = useState(null);
   const [params, setParams] = useSearchParams();
   const [creating, setCreatingState] = useState(params.get('new') === '1');
   const setCreating = (v) => { setCreatingState(v); if (!v && params.get('new')) setParams({}, { replace: true }); };
@@ -55,22 +57,26 @@ export default function Courses() {
       ) : (
         <div className="course-grid stagger">
           {list.map((c) => (
-            <Link key={c.id} to={`/admin/courses/${c.id}`} className="card course-card">
-              <CourseCover course={c} />
+            <div key={c.id} className="card course-card">
+              <Link to={`/admin/courses/${c.id}`} className="cc-link" aria-label={`Открыть курс «${c.title}»`}><CourseCover course={c} /></Link>
+              <div className="cc-actions"><CourseMenu course={c} showOpen onEdit={() => setEditing(c)} onChanged={() => reload()} onDeleted={() => reload()} dark /></div>
               <div className="course-body">
                 <div>{c.status === 'published'
                   ? <span className="badge badge-success"><CheckCircle2 size={12} />Опубликован</span>
                   : <span className="badge"><EyeOff size={12} />Черновик</span>}</div>
-                <div className="course-title">{c.title}</div>
+                <Link to={`/admin/courses/${c.id}`} className="course-title cc-title">{c.title}</Link>
                 {c.description && <div className="course-desc">{c.description}</div>}
                 <div className="course-foot row small muted" style={{ gap: 14 }}>
-                  <span className="row" style={{ gap: 4 }}><Layers size={14} />{c.lessonsCount} {plural(c.lessonsCount, 'занятие', 'занятия', 'занятий')}</span>
-                  <span className="row" style={{ gap: 4 }}><Users size={14} />{c.studentsCount} {plural(c.studentsCount, 'ученик', 'ученика', 'учеников')}</span>
-                  {c.completedCount > 0 && <span className="row" style={{ gap: 4 }}><CheckCircle2 size={14} />{c.completedCount}</span>}
+                  <span className="row mono" style={{ gap: 4 }}><Layers size={14} />{c.lessonsCount} {plural(c.lessonsCount, 'занятие', 'занятия', 'занятий')}</span>
+                  <span className="row mono" style={{ gap: 4 }}><Users size={14} />{c.studentsCount} {plural(c.studentsCount, 'ученик', 'ученика', 'учеников')}</span>
+                  {c.completedCount > 0 && <span className="row mono" style={{ gap: 4 }}><CheckCircle2 size={14} />{c.completedCount}</span>}
                 </div>
-                <span className="btn btn-soft btn-block mt-8">Редактировать курс</span>
+                <div className="cc-buttons">
+                  <Link to={`/admin/courses/${c.id}`} className="btn btn-soft flex-1">Конструктор<ArrowRight size={16} /></Link>
+                  <button type="button" className="btn btn-secondary btn-icon" onClick={() => setEditing(c)} title="Редактировать название и обложку" aria-label="Редактировать курс"><Pencil size={16} /></button>
+                </div>
               </div>
-            </Link>
+            </div>
           ))}
           <div className="card course-card add" onClick={() => setCreating(true)} role="button" tabIndex={0}>
             <div style={{ textAlign: 'center' }}><PlusCircle size={30} /><div className="mt-8">Создать курс</div></div>
@@ -78,6 +84,7 @@ export default function Courses() {
         </div>
       )}
       {creating && <CreateCourseModal onClose={() => setCreating(false)} />}
+      {editing && <CourseEditModal course={editing} onClose={() => setEditing(null)} onSaved={() => reload()} />}
     </div>
   );
 }

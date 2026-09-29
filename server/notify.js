@@ -23,6 +23,11 @@ function platformName() {
   return (r && r.value) || 'Учебный центр';
 }
 
+function accentColor() {
+  const r = db.prepare("SELECT value FROM settings WHERE key = 'accent_color'").get();
+  return (r && /^#[0-9a-fA-F]{6}$/.test(r.value) && r.value) || '#E4570F';
+}
+
 function escapeHtml(s) {
   return String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
@@ -34,7 +39,7 @@ async function sendMail(to, subject, text, link) {
     <p style="font-size:13px;color:#6b7686;margin:0 0 12px">${escapeHtml(platformName())}</p>
     <h2 style="font-size:18px;margin:0 0 12px">${escapeHtml(subject)}</h2>
     <p style="margin:0 0 16px">${escapeHtml(text)}</p>
-    ${url ? `<p><a href="${url}" style="display:inline-block;background:#2f5bea;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">Открыть</a></p>` : ''}
+    ${url ? `<p><a href="${url}" style="display:inline-block;background:${accentColor()};color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">Открыть</a></p>` : ''}
   </div>`;
   try {
     await transporter.sendMail({ from: config.SMTP.from, to, subject, text: text + (url ? `\n\n${url}` : ''), html });

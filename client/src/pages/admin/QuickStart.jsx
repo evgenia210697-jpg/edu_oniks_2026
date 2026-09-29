@@ -18,7 +18,7 @@ export default function QuickStart({ courses }) {
   const own = courses.filter((c) => !isExample(c));
   const staffAndStudents = users.data.filter((u) => u.email !== 'student@company.local');
   const steps = [
-    { done: !!(settings?.logo || (settings?.accentColor || '').toLowerCase() !== '#2f5bea' || (settings?.platformName && settings.platformName !== 'Учебный центр')),
+    { done: !!(settings?.logo || (settings?.accentColor || '').toLowerCase() !== '#e4570f' || (settings?.platformName && settings.platformName !== 'Учебный центр')),
       title: 'Оформите платформу', text: 'Название, логотип и фирменный цвет компании', to: '/admin/settings', cta: 'Настройки' },
     { done: own.length > 0, title: 'Создайте первый курс', text: 'Например, «Адаптация новых сотрудников»', to: '/admin/courses?new=1', cta: 'Создать курс' },
     { done: own.some((c) => c.lessonsCount > 0), title: 'Добавьте уроки, тесты и задания', text: 'Видео, презентации, файлы и проверка знаний', to: own[0] ? `/admin/courses/${own[0].id}` : '/admin/courses?new=1', cta: 'Открыть конструктор' },

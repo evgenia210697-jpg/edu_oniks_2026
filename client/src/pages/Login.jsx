@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { GraduationCap, Mail, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { api } from '../api';
 import { useAuth, applyTheme } from '../App';
+import { NutMark } from '../components/ui';
 
 export default function Login() {
   const auth = useAuth();
@@ -38,15 +39,16 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-art">
-        <div className="hero-deco" /><div className="hero-deco two" />
+        <NutMark className="login-nut" size={520} />
         <div className="row">
-          <div className="brand-logo" style={{ background: 'rgba(255,255,255,.18)' }}>
+          <div className="brand-logo">
             {settings?.logo ? <img src={settings.logo} alt="" /> : <GraduationCap size={20} />}
           </div>
           <div className="brand-name">{settings?.platformName || 'Учебный центр'}</div>
         </div>
         <div>
-          <h1>Учитесь в удобном темпе — с любого устройства</h1>
+          <div className="login-kicker">Корпоративное обучение</div>
+          <h1>Знания о продукции и работе — в одном месте</h1>
           <p>{settings?.loginText || 'Корпоративная платформа обучения сотрудников'}</p>
         </div>
         <div style={{ opacity: .7, fontSize: 13 }}>Доступ выдаёт администратор платформы</div>

@@ -20,9 +20,26 @@ import Settings from './pages/admin/Settings';
 const AuthCtx = createContext(null);
 export const useAuth = () => useContext(AuthCtx);
 
+export const DEFAULT_ACCENT = '#E4570F';
+
+// Цвет текста на кнопках фирменного цвета: белый, а на светлых цветах (жёлтый, салатовый) — графитовый
+export function onAccent(hex) {
+  const n = parseInt(String(hex || '').replace('#', ''), 16);
+  if (Number.isNaN(n)) return '#fff';
+  const lin = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+  const L = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+  return 1.05 / (L + 0.05) >= 2.6 ? '#fff' : '#16181d';
+}
+
+export function setAccent(color) {
+  const c = color || DEFAULT_ACCENT;
+  document.documentElement.style.setProperty('--accent', c);
+  document.documentElement.style.setProperty('--on-accent', onAccent(c));
+}
+
 export function applyTheme(settings) {
   if (!settings) return;
-  document.documentElement.style.setProperty('--accent', settings.accentColor || '#2F5BEA');
+  setAccent(settings.accentColor);
   document.title = settings.platformName || 'Обучение';
 }
 
