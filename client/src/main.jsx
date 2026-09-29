@@ -3,6 +3,9 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { ToastProvider, ConfirmProvider, PromptProvider } from './components/ui';
 import './styles.css';
+import { installInteractions } from './components/interactions';
+
+installInteractions();
 
 createRoot(document.getElementById('root')).render(
   <BrowserRouter>

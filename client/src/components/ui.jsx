@@ -4,24 +4,74 @@ import { X, Check, AlertCircle, Lock, Clock, RotateCcw, GraduationCap, PenTool, 
 import { api } from '../api';
 import { initials } from '../utils';
 
-/* ---------- Загрузка данных ---------- */
+/* ---------- Загрузка данных ----------
+   Ответы сервера кэшируются: при повторном открытии страница показывается мгновенно
+   из кэша и тихо обновляется в фоне (как в приложениях Apple — без пустых экранов). */
+const apiCache = new Map(); // url → { data, at }
+const inflight = new Map(); // url → Promise
+function fetchCached(url) {
+  if (inflight.has(url)) return inflight.get(url);
+  const p = api.get(url).then((data) => { apiCache.set(url, { data, at: Date.now() }); return data; })
+    .finally(() => inflight.delete(url));
+  inflight.set(url, p);
+  return p;
+}
+export const clearApiCache = () => { apiCache.clear(); inflight.clear(); };
+/** Предзагрузка по наведению: к клику данные уже на месте */
+export function prefetch(url) {
+  const c = apiCache.get(url);
+  if (c && Date.now() - c.at < 15000) return;
+  fetchCached(url).catch(() => {});
+}
+
 export function useApi(url, deps = []) {
-  const [state, setState] = useState({ data: null, error: null, loading: true });
+  const [state, setState] = useState(() => {
+    const c = url && apiCache.get(url);
+    return c ? { data: c.data, error: null, loading: false } : { data: null, error: null, loading: !!url };
+  });
   const [tick, setTick] = useState(0);
   useEffect(() => {
-    if (!url) { setState({ data: null, error: null, loading: false }); return; }
+    if (!url) { setState({ data: null, error: null, loading: false }); return undefined; }
     let alive = true;
-    setState((s) => ({ ...s, loading: true, error: null }));
-    api.get(url).then(
+    const c = apiCache.get(url);
+    // есть данные в кэше — показываем сразу, обновляем в фоне
+    setState((s) => (c && tick === 0 ? { data: c.data, error: null, loading: true } : { ...s, loading: true, error: null }));
+    (tick === 0 ? fetchCached(url) : api.get(url).then((data) => { apiCache.set(url, { data, at: Date.now() }); return data; })).then(
       (data) => alive && setState({ data, error: null, loading: false }),
-      (error) => alive && setState({ data: null, error, loading: false }),
+      (error) => alive && setState((s) => (s.data && c ? { ...s, loading: false } : { data: null, error, loading: false })),
     );
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, tick, ...deps]);
   const reload = useCallback(() => setTick((t) => t + 1), []);
-  const setData = useCallback((fn) => setState((s) => ({ ...s, data: typeof fn === 'function' ? fn(s.data) : fn })), []);
+  const setData = useCallback((fn) => setState((s) => {
+    const data = typeof fn === 'function' ? fn(s.data) : fn;
+    if (url) apiCache.set(url, { data, at: Date.now() });
+    return { ...s, data };
+  }), [url]);
   return { ...state, reload, setData };
+}
+
+/** Плавный счётчик чисел: 0 → значение за ~0.7 с (как цифры в приложениях Apple) */
+export function CountUp({ value, duration = 700, suffix = '' }) {
+  const n = Number(value) || 0;
+  const [shown, setShown] = useState(n);
+  const from = useRef(0);
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setShown(n); return undefined; }
+    const start = performance.now();
+    const a = from.current;
+    let raf;
+    const step = (t) => {
+      const k = Math.min(1, (t - start) / duration);
+      const e = 1 - (1 - k) ** 3;
+      setShown(Math.round(a + (n - a) * e));
+      if (k < 1) raf = requestAnimationFrame(step); else from.current = n;
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [n, duration]);
+  return <>{shown}{suffix}</>;
 }
 
 /* ---------- Тосты ---------- */
@@ -261,22 +311,27 @@ export function Avatar({ user, size = '' }) {
 }
 
 export function Progress({ value, success }) {
-  return <div className={`progress ${success || value >= 100 ? 'success' : ''}`}><div style={{ width: `${Math.max(0, Math.min(100, value || 0))}%` }} /></div>;
+  const target = Math.max(0, Math.min(100, value || 0));
+  const [w, setW] = useState(0);
+  useEffect(() => { const r = requestAnimationFrame(() => setW(target)); return () => cancelAnimationFrame(r); }, [target]);
+  return <div className={`progress ${success || value >= 100 ? 'success' : ''}`}><div style={{ width: `${w}%` }} /></div>;
 }
 
 export function Ring({ value = 0, size = 44, stroke = 4, label, color }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const v = Math.max(0, Math.min(100, value));
+  const [drawn, setDrawn] = useState(0);
+  useEffect(() => { const t = requestAnimationFrame(() => setDrawn(v)); return () => cancelAnimationFrame(t); }, [v]);
   const col = color || (v >= 100 ? 'var(--success)' : 'var(--accent)');
   return (
     <span className="ring" style={{ width: size, height: size }}>
       <svg width={size} height={size}>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={stroke} />
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={col} strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={c} strokeDashoffset={c * (1 - v / 100)} style={{ transition: 'stroke-dashoffset .5s' }} />
+          strokeDasharray={c} strokeDashoffset={c * (1 - drawn / 100)} style={{ transition: 'stroke-dashoffset .9s cubic-bezier(.32,.72,0,1), stroke .3s' }} />
       </svg>
-      <span className="ring-label">{label ?? `${v}%`}</span>
+      <span className="ring-label">{label ?? <CountUp value={v} suffix="%" />}</span>
     </span>
   );
 }

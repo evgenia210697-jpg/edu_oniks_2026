@@ -1042,3 +1042,146 @@ kbd { font: 600 11px/1 var(--font); color: var(--muted); background: var(--surfa
 .pc-stats b { font-size: 14px; }
 .module-card .module-head h3 { font-size: 16px; }
 @media (max-width: 1000px) { .course-layout { grid-template-columns: 1fr; } .course-aside { position: static; order: -1; } }
+
+/* =====================================================================
+   Отклик интерфейса в духе Apple: мгновенное «нажатие», пружинистое
+   движение, полупрозрачное стекло, плавные подложки и счётчики
+   ===================================================================== */
+:root {
+  --ease: cubic-bezier(.32, .72, 0, 1);          /* кривая iOS: быстрый старт, мягкая остановка */
+  --ease-spring: cubic-bezier(.34, 1.36, .64, 1); /* лёгкая пружина */
+  --t-fast: .16s;
+  --t: .28s;
+  --t-slow: .45s;
+  --glass: saturate(180%) blur(20px);
+}
+html { -webkit-tap-highlight-color: transparent; }
+button, a, [role="button"], .tab, .menu-item, summary { touch-action: manipulation; }
+.player-aside, .menu, .cmdk-list, .modal-backdrop, .notif-list { overscroll-behavior: contain; }
+
+/* Аккуратные тонкие полосы прокрутки */
+* { scrollbar-width: thin; scrollbar-color: rgba(20, 30, 45, .18) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(20, 30, 45, .16); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(20, 30, 45, .3); }
+
+/* Фокус с клавиатуры — мягкое кольцо, а не рамка */
+:focus-visible { outline: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent); border-radius: 8px; }
+.input:focus-visible, .select:focus-visible, .textarea:focus-visible { border-radius: 10px; }
+
+/* Кнопки: мгновенное нажатие, мягкий подъём при наведении */
+.btn { transition: transform .22s var(--ease), background-color .2s var(--ease), box-shadow .28s var(--ease), color .2s, border-color .2s, filter .2s; }
+.btn:active:not(:disabled) { transform: scale(.955); transition-duration: .08s; }
+.btn-primary { box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 30%, transparent), inset 0 1px 0 rgba(255, 255, 255, .14); }
+.btn-primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.07); box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--accent) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, .14); }
+.btn-secondary:hover:not(:disabled) { box-shadow: 0 2px 8px -2px rgba(20, 30, 45, .12); }
+.btn-icon:active:not(:disabled) { transform: scale(.88); }
+.tb-btn:active { transform: scale(.86); transition-duration: .06s; }
+
+/* Всё, на что можно нажать, «проседает» под пальцем */
+.lesson-row, .prog-lesson, .module-head, .outline-lesson, .radio-card, .answer-opt, .cmdk-item, .menu-item, .notif, .file-item, .palette-item,
+.q-nav button, .nav-link, .tab, .side-lesson, .qs-steps li a, .cp-swatch, .color-swatch, .prog-module-head, .pb-dot, .stat[style*="cursor"] {
+  transition: transform .22s var(--ease), background-color .18s var(--ease), color .18s, border-color .18s, box-shadow .25s var(--ease), opacity .2s;
+}
+.lesson-row:active, .prog-lesson:active, .outline-lesson:active, .side-lesson:active, .notif:active, .file-item:active, .cmdk-item:active,
+.menu-item:active:not(:disabled), .prog-module-head:active, .module-head:active { transform: scale(.985); transition-duration: .08s; }
+.radio-card:active, .answer-opt:active, .palette-item:active, .q-nav button:active { transform: scale(.975); transition-duration: .08s; }
+.nav-link:active, .tab:active { transform: scale(.97); transition-duration: .08s; }
+.lesson-row:hover:not(.locked) { transform: translateX(3px); }
+.table tr.clickable td { transition: background-color .15s var(--ease); }
+.table tr.clickable:active td { background: var(--accent-50); }
+
+/* Карточки курсов: лёгкий наклон и блик за курсором */
+.course-card { transition: transform .5s var(--ease), box-shadow .5s var(--ease); transform-origin: center; }
+.course-card:active { transform: scale(.985); transition-duration: .1s; }
+.course-card.tilting { transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-4px); transition: transform .14s linear, box-shadow .4s var(--ease);
+  box-shadow: 0 24px 44px -20px rgba(20, 30, 45, .36); }
+.course-card::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 1; opacity: 0; transition: opacity .35s var(--ease);
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, .38), transparent 45%); mix-blend-mode: soft-light; }
+.course-card.tilting::after { opacity: 1; }
+
+/* Вкладки: подложка переезжает к выбранной (как в iOS) */
+.tabs.has-ind { position: relative; }
+.tab-ind { position: absolute; left: 0; top: 0; border-radius: 9px; background: var(--accent-50); pointer-events: none; z-index: 0; opacity: 0;
+  transition: transform .42s var(--ease), width .42s var(--ease), height .42s var(--ease), opacity .2s; box-shadow: inset 0 0 0 1px var(--accent-100); }
+.tabs.has-ind > .tab { position: relative; z-index: 1; }
+.tabs.has-ind > .tab.active { background: transparent; }
+.card .tabs.has-ind .tab-ind { background: var(--surface); box-shadow: 0 1px 3px rgba(20, 30, 45, .12), 0 0 0 .5px rgba(20, 30, 45, .06); }
+
+/* Переключатель: бегунок «растягивается» при нажатии, как в iOS */
+.toggle .track { transition: background-color .3s var(--ease); }
+.toggle .track::after { transition: transform .38s var(--ease-spring), width .22s var(--ease); }
+.toggle:active .track::after { width: 20px; }
+.toggle:active input:checked + .track::after { transform: translateX(12px); }
+
+/* Стекло: шапка, меню, окна, уведомления */
+.topbar { background: color-mix(in srgb, var(--bg) 72%, transparent); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass); }
+.player-top { background: color-mix(in srgb, var(--surface) 78%, transparent); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass); }
+.menu { background: color-mix(in srgb, var(--surface) 93%, transparent); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass);
+  border-color: rgba(20, 30, 45, .08); box-shadow: 0 12px 40px -12px rgba(20, 30, 45, .3), 0 2px 8px rgba(20, 30, 45, .06); border-radius: 14px; }
+.menu { animation: menu-in .26s var(--ease); }
+.menu.closing { animation: menu-out .14s var(--ease) forwards; }
+@keyframes menu-in { from { opacity: 0; transform: translateY(-6px) scale(.95); } }
+@keyframes menu-out { to { opacity: 0; transform: translateY(-4px) scale(.97); } }
+.menu-item { border-radius: 9px; }
+.menu-item:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.modal-backdrop { background: rgba(15, 22, 34, .3); -webkit-backdrop-filter: blur(10px) saturate(140%); backdrop-filter: blur(10px) saturate(140%); animation: fade .3s var(--ease); }
+.modal { border-radius: 20px; box-shadow: 0 30px 80px -24px rgba(15, 22, 34, .5), 0 0 0 .5px rgba(15, 22, 34, .08); animation: modal-in .42s var(--ease); }
+@keyframes modal-in { from { opacity: 0; transform: translateY(16px) scale(.95); } }
+.modal-backdrop.closing { animation: fade-out .2s var(--ease) forwards; }
+.modal-backdrop.closing .modal { animation: modal-out .2s var(--ease) forwards; }
+@keyframes modal-out { to { opacity: 0; transform: translateY(10px) scale(.97); } }
+.cmdk { background: color-mix(in srgb, var(--surface) 90%, transparent); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass); border-radius: 18px;
+  animation: modal-in .38s var(--ease); box-shadow: 0 30px 80px -20px rgba(15, 22, 34, .45), 0 0 0 .5px rgba(15, 22, 34, .1); }
+.cmdk-backdrop { background: rgba(15, 22, 34, .22); animation: fade .25s var(--ease); }
+.cmdk-foot { background: transparent; }
+.toast { background: rgba(27, 36, 48, .86); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass); border-radius: 14px; padding: 12px 18px;
+  box-shadow: 0 14px 34px -12px rgba(15, 22, 34, .45); animation: toast-in .5s var(--ease-spring); }
+.toast.error { background: color-mix(in srgb, var(--danger) 92%, transparent); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(24px) scale(.9); } }
+.toast.leaving { animation: toast-out .26s var(--ease) forwards; }
+
+/* На телефоне окна выезжают снизу листом, как в iOS */
+@media (max-width: 640px) {
+  .modal-backdrop { align-items: flex-start; padding: 0; }
+  .modal { margin-top: auto; max-width: none; border-radius: 22px 22px 0 0; animation: sheet-in .46s var(--ease); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .modal::before { content: ''; display: block; width: 38px; height: 5px; border-radius: 3px; background: var(--border-strong); margin: 8px auto 0; }
+  .modal-backdrop.closing .modal { animation: sheet-out .24s var(--ease) forwards; }
+  @keyframes sheet-in { from { transform: translateY(100%); } }
+  @keyframes sheet-out { to { transform: translateY(100%); } }
+}
+
+/* Переходы между разделами и страницами урока */
+.route-in { animation: route-in .46s var(--ease) both; }
+@keyframes route-in { from { opacity: 0; transform: translateY(8px); } }
+.page-in { animation: page-in .42s var(--ease) both; }
+@keyframes page-in { from { opacity: 0; transform: translateX(18px); } }
+@keyframes page-in-back { from { opacity: 0; transform: translateX(-18px); } }
+.stagger > * { animation: rise .55s var(--ease) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px) scale(.985); } }
+
+/* Картинки и обложки проявляются мягко */
+.course-cover img, .b-image img, .avatar img, .q-image { animation: img-in .6s var(--ease) both; }
+@keyframes img-in { from { opacity: 0; transform: scale(1.03); } }
+
+/* Поля ввода */
+.input, .select, .textarea, .rich { transition: border-color .2s var(--ease), box-shadow .25s var(--ease), background-color .2s; }
+.input:hover:not(:focus), .select:hover:not(:focus), .textarea:hover:not(:focus) { border-color: color-mix(in srgb, var(--border-strong) 60%, var(--text)); }
+
+/* Прогресс и числа */
+.progress > div, .hero-progress > div, .pt-bar > div, .qs-progress > div { transition: width .9s var(--ease); }
+.stat-value, .ring-label, .pt-pct, .mono { font-variant-numeric: tabular-nums; }
+.stat { transition: transform .3s var(--ease), box-shadow .3s var(--ease); }
+.stat:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+
+/* Выбор ответа: отметка «впрыгивает» */
+.answer-opt .mark { transition: background-color .2s var(--ease), border-color .2s var(--ease), transform .4s var(--ease-spring); }
+.answer-opt.picked .mark { animation: pick .45s var(--ease-spring); }
+@keyframes pick { 0% { transform: scale(.5); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+
+/* Статусы занятий: галочка появляется с пружиной */
+.status-ic.done svg { animation: pick .5s var(--ease-spring) both; }
+
+/* Нижняя панель урока и шапка плеера — стекло */
+.player-bar { background: color-mix(in srgb, var(--surface) 78%, transparent); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass); }
+.course-card.tilting:active { transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) scale(.985); transition-duration: .1s; }

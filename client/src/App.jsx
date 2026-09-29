@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, Component } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { api } from './api';
-import { Spinner } from './components/ui';
+import { Spinner, clearApiCache } from './components/ui';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Library from './pages/student/Library';
@@ -76,6 +76,9 @@ export default function App() {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+  // другой пользователь — чужие данные из кэша не показываем
+  const uidKey = state.user?.id;
+  useEffect(() => { clearApiCache(); }, [uidKey]);
   useEffect(() => {
     const h = () => setState((s) => ({ ...s, user: null }));
     window.addEventListener('lms:unauthorized', h);

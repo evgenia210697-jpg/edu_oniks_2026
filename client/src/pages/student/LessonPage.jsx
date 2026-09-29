@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Eye, CheckCircle2, Clock, RotateCcw, Star, Timer, ListChecks, Lock, ArrowLeft, PanelLeftClose, PanelLeftOpen, ListTree, Award, GraduationCap } from 'lucide-react';
 import { api } from '../../api';
-import { useApi, Loading, ErrorBox, Progress, StatusIcon, useToast, TypeIcon, Avatar } from '../../components/ui';
+import { useApi, Loading, ErrorBox, Progress, StatusIcon, useToast, TypeIcon, Avatar, CountUp } from '../../components/ui';
 import { useAuth } from '../../App';
 import { Notifications } from '../../components/Layout';
 import { BlocksView } from '../../blocks/BlockView';
@@ -380,7 +380,7 @@ function PlayerShell({ data, courseId, lessonId, children }) {
           <div className="pt-progress" title={`Пройдено ${completed} из ${all.length}`}>
             <span className="pt-count">{completed} / {all.length}</span>
             <div className="pt-bar"><div style={{ width: `${data.progress}%` }} /></div>
-            <span className="pt-pct">{data.progress}%</span>
+            <span className="pt-pct"><CountUp value={data.progress} suffix="%" /></span>
           </div>
         )}
         <Notifications />

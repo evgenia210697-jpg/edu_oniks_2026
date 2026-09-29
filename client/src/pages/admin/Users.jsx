@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { UserPlus, Download, Search, Users as UsersIcon, Activity, TrendingUp, Clock, Award, FileSpreadsheet, BookPlus, Copy, CheckCircle2 } from 'lucide-react';
 import { api } from '../../api';
 import { useAuth } from '../../App';
-import { useApi, Loading, ErrorBox, Avatar, Progress, Modal, Field, useToast, Empty } from '../../components/ui';
+import { useApi, Loading, ErrorBox, Avatar, Progress, Modal, Field, useToast, Empty, CountUp } from '../../components/ui';
 import { fmtRelative, ROLE_LABEL, copyText, plural, downloadBlob } from '../../utils';
 
 function credsText(list, url) {
@@ -215,11 +215,11 @@ export default function Users() {
 
       {s && (
         <div className="stats stagger">
-          <div className="card stat"><div className="stat-label"><span className="stat-icon"><UsersIcon size={16} /></span>Учеников</div><div className="stat-value">{s.students}</div><div className="stat-note">+{s.newStudents30} за 30 дней</div></div>
-          <div className="card stat"><div className="stat-label"><span className="stat-icon"><Activity size={16} /></span>Активны за 7 дней</div><div className="stat-value">{s.active7}</div><div className="stat-note">из {s.students}</div></div>
-          <div className="card stat"><div className="stat-label"><span className="stat-icon"><TrendingUp size={16} /></span>Средний прогресс</div><div className="stat-value">{s.avgProgress}%</div><div className="stat-note">завершено курсов: {s.completedCourses}</div></div>
-          <div className="card stat"><div className="stat-label"><span className="stat-icon"><Award size={16} /></span>Средний балл тестов</div><div className="stat-value">{s.avgTestScore == null ? '—' : `${s.avgTestScore}%`}</div></div>
-          <div className="card stat" style={{ cursor: 'pointer' }} onClick={() => nav('/admin/reviews')}><div className="stat-label"><span className="stat-icon"><Clock size={16} /></span>Ждут проверки</div><div className="stat-value" style={{ color: s.pending ? 'var(--warning)' : undefined }}>{s.pending}</div></div>
+          <div className="card stat"><div className="stat-label"><span className="stat-icon"><UsersIcon size={16} /></span>Учеников</div><div className="stat-value"><CountUp value={s.students} /></div><div className="stat-note">+{s.newStudents30} за 30 дней</div></div>
+          <div className="card stat"><div className="stat-label"><span className="stat-icon"><Activity size={16} /></span>Активны за 7 дней</div><div className="stat-value"><CountUp value={s.active7} /></div><div className="stat-note">из {s.students}</div></div>
+          <div className="card stat"><div className="stat-label"><span className="stat-icon"><TrendingUp size={16} /></span>Средний прогресс</div><div className="stat-value"><CountUp value={s.avgProgress} suffix="%" /></div><div className="stat-note">завершено курсов: {s.completedCourses}</div></div>
+          <div className="card stat"><div className="stat-label"><span className="stat-icon"><Award size={16} /></span>Средний балл тестов</div><div className="stat-value">{s.avgTestScore == null ? '—' : <CountUp value={s.avgTestScore} suffix="%" />}</div></div>
+          <div className="card stat" style={{ cursor: 'pointer' }} onClick={() => nav('/admin/reviews')}><div className="stat-label"><span className="stat-icon"><Clock size={16} /></span>Ждут проверки</div><div className="stat-value" style={{ color: s.pending ? 'var(--warning)' : undefined }}><CountUp value={s.pending} /></div></div>
           <div className="card stat"><div className="stat-label">Активность за 2 недели</div><ActivityChart activity={s.activity} /></div>
         </div>
       )}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { celebrate } from '../../components/celebrate';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronDown, ChevronUp, PlayCircle, Star, Award, Eye, GraduationCap, PenTool, ListChecks, Clock } from 'lucide-react';
-import { useApi, Loading, ErrorBox, Hero, Ring, StatusIcon, TypeIcon, STATUS_TEXT } from '../../components/ui';
+import { useApi, Loading, ErrorBox, Hero, Ring, StatusIcon, TypeIcon, STATUS_TEXT, CountUp } from '../../components/ui';
 import { plural, fmtDate } from '../../utils';
 
 export function LessonMeta({ l }) {
@@ -100,7 +100,7 @@ export default function CoursePage() {
       <aside className="course-aside">
         <div className="card progress-card">
           <div className="pc-top">
-            <Ring value={c.completedAt ? 100 : c.progress} size={84} stroke={7} label={<span className="mono" style={{ fontSize: 17 }}>{c.completedAt ? 100 : c.progress}%</span>} />
+            <Ring value={c.completedAt ? 100 : c.progress} size={84} stroke={7} label={<span className="mono" style={{ fontSize: 17 }}><CountUp value={c.completedAt ? 100 : c.progress} suffix="%" /></span>} />
             <div>
               <div className="pc-title">{c.completedAt ? 'Курс пройден' : c.progress > 0 ? 'Ваш прогресс' : 'Готовы начать?'}</div>
               <div className="small muted">Пройдено {c.completed} из {c.total} {plural(c.total, 'занятия', 'занятий', 'занятий')}</div>

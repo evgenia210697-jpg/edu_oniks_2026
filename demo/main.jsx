@@ -92,6 +92,7 @@ setTimeout(() => showFail('платформа не запустилась за 3
   }
   const [{ default: App }, ui] = await Promise.all([import('../client/src/App'), import('../client/src/components/ui')]);
   await import('../client/src/styles.css');
+  (await import('../client/src/components/interactions')).installInteractions();
   const { ToastProvider, ConfirmProvider, PromptProvider } = ui;
   started = true;
   root.render(
