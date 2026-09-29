@@ -100,6 +100,40 @@ export function ConfirmProvider({ children }) {
 }
 export const useConfirm = () => useContext(ConfirmCtx);
 
+/* ---------- Запрос строки (вместо системного window.prompt) ---------- */
+const PromptCtx = createContext(null);
+function PromptModal({ st, onClose }) {
+  const [value, setValue] = useState(st.value || '');
+  const submit = (e) => { e.preventDefault(); onClose(value); };
+  return (
+    <Modal title={st.title} onClose={() => onClose(null)}
+      footer={<>
+        <button className="btn btn-secondary" onClick={() => onClose(null)}>Отмена</button>
+        <button className="btn btn-primary" form="prompt-form">{st.ok || 'Сохранить'}</button>
+      </>}>
+      <form id="prompt-form" onSubmit={submit}>
+        <Field label={st.label} hint={st.hint}>
+          <input className="input" autoFocus value={value} onChange={(e) => setValue(e.target.value)} placeholder={st.placeholder}
+            onFocus={(e) => e.target.select()} />
+        </Field>
+      </form>
+    </Modal>
+  );
+}
+export function PromptProvider({ children }) {
+  const [st, setSt] = useState(null);
+  const prompt = useCallback((opts) => new Promise((resolve) => setSt({ ...opts, resolve })), []);
+  const close = (v) => { st?.resolve(v); setSt(null); };
+  return (
+    <PromptCtx.Provider value={prompt}>
+      {children}
+      {st && <PromptModal st={st} onClose={close} />}
+    </PromptCtx.Provider>
+  );
+}
+/** prompt({ title, label, value, placeholder, hint, ok }) → Promise<строка | null> */
+export const usePrompt = () => useContext(PromptCtx);
+
 /* ---------- Выпадающее меню ---------- */
 export function Menu({ trigger, children, align = 'right', className = '' }) {
   const [open, setOpen] = useState(false);

@@ -7,7 +7,7 @@ import {
   ChevronLeft, Eye, Plus, MoreHorizontal, Pencil, ArrowUp, ArrowDown, Trash2, GripVertical, Layers, Users as UsersIcon, Settings2, FolderInput, CheckCircle2, EyeOff,
 } from 'lucide-react';
 import { api } from '../../api';
-import { useApi, Loading, ErrorBox, Menu, MenuItem, useConfirm, useToast, TypeIcon, Empty, Hero } from '../../components/ui';
+import { useApi, Loading, ErrorBox, Menu, MenuItem, useConfirm, usePrompt, useToast, TypeIcon, Empty, Hero } from '../../components/ui';
 import LessonEditor from './LessonEditor';
 import { CreateLessonModal } from './LessonSettings';
 import CourseStudents from './CourseStudents';
@@ -38,6 +38,7 @@ function LessonItem({ l, active, onClick, modules, onMoveTo }) {
 function Outline({ course, modules, setModules, activeId, onSelect, reloadCourse }) {
   const toast = useToast();
   const confirm = useConfirm();
+  const prompt = usePrompt();
   const [creatingIn, setCreatingIn] = useState(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -61,7 +62,7 @@ function Outline({ course, modules, setModules, activeId, onSelect, reloadCourse
     saveOrder(mods);
   };
   const renameModule = async (m) => {
-    const title = window.prompt('Название модуля', m.title);
+    const title = await prompt({ title: 'Переименовать модуль', label: 'Название модуля', value: m.title });
     if (!title || !title.trim()) return;
     await api.put(`/admin/modules/${m.id}`, { title });
     setModules(modules.map((x) => (x.id === m.id ? { ...x, title } : x)));
@@ -73,7 +74,7 @@ function Outline({ course, modules, setModules, activeId, onSelect, reloadCourse
     toast('Модуль удалён');
   };
   const addModule = async () => {
-    const title = window.prompt('Название нового модуля', `Модуль ${modules.length + 1}`);
+    const title = await prompt({ title: 'Новый модуль', label: 'Название модуля', value: `Модуль ${modules.length + 1}`, ok: 'Создать' });
     if (!title || !title.trim()) return;
     const m = await api.post(`/admin/courses/${course.id}/modules`, { title });
     setModules([...modules, { ...m, lessons: [] }]);

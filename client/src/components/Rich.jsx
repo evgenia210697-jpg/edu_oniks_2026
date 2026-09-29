@@ -10,7 +10,7 @@ import {
   Bold, Italic, Underline, Strikethrough, List, ListOrdered, Link2, Highlighter, AlignLeft, AlignCenter, AlignRight,
   Heading2, Heading3, Pilcrow, Quote, RemoveFormatting, Undo2, Redo2, Palette,
 } from 'lucide-react';
-import { Menu } from './ui';
+import { Menu, usePrompt } from './ui';
 
 const baseExtensions = [
   StarterKit.configure({
@@ -35,6 +35,7 @@ export function RichText({ html, className = '' }) {
 const COLORS = ['#19212c', '#6b7686', '#d63b3b', '#e0730b', '#c89b00', '#15935b', '#0e9aa7', '#2878d6', '#2f5bea', '#7c4ddb', '#c2408f', '#8a5a2b'];
 
 function Toolbar({ editor, minimal }) {
+  const prompt = usePrompt();
   const s = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
@@ -48,9 +49,9 @@ function Toolbar({ editor, minimal }) {
     <button type="button" className={`tb-btn ${on ? 'on' : ''}`} title={title} onMouseDown={(e) => e.preventDefault()} onClick={onClick}><Icon size={16} /></button>
   );
   const c = () => editor.chain().focus();
-  const setLink = () => {
+  const setLink = async () => {
     const prev = editor.getAttributes('link').href || '';
-    const url = window.prompt('Адрес ссылки (оставьте пустым, чтобы убрать):', prev || 'https://');
+    const url = await prompt({ title: 'Ссылка', label: 'Адрес ссылки', hint: 'Оставьте поле пустым, чтобы убрать ссылку', value: prev || 'https://', placeholder: 'https://…' });
     if (url === null) return;
     if (!url || url === 'https://') c().extendMarkRange('link').unsetLink().run();
     else c().extendMarkRange('link').setLink({ href: /^(https?:|mailto:|tel:|\/)/.test(url) ? url : `https://${url}` }).run();

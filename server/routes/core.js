@@ -102,7 +102,7 @@ router.post('/files', auth.requireAuth, upload.single('file'), (req, res) => {
   if (!req.file) fail(400, 'Файл не получен');
   let name = req.file.originalname || 'file';
   // multer отдаёт имя в latin1 — переводим в UTF-8
-  try { const dec = Buffer.from(name, 'latin1').toString('utf8'); if (!dec.includes('�')) name = dec; } catch { /* ignore */ }
+  try { const dec = Buffer.from(name, 'latin1').toString('utf8'); if (!dec.includes('\uFFFD')) name = dec; } catch { /* ignore */ }
   const ext = path.extname(name).toLowerCase();
   const mime = detectMime(ext, req.file.mimetype);
   let scope = str(req.query.scope || req.body?.scope || 'content', 20);

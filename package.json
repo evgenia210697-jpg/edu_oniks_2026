@@ -10,7 +10,8 @@
     "dev:client": "vite",
     "backup": "node server/cli.js backup",
     "set-password": "node server/cli.js set-password",
-    "create-admin": "node server/cli.js create-admin"
+    "create-admin": "node server/cli.js create-admin",
+    "build:demo": "vite build --config demo/vite.config.mjs && node demo/postbuild.js"
   },
   "author": "",
   "license": "ISC",
@@ -42,6 +43,7 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4",
+    "sql.js": "^1.14.2",
     "vite": "^8.3.1"
   },
   "private": true,
