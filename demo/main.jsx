@@ -64,18 +64,36 @@ function DemoPanel() {
   );
 }
 
+// Если запуск не удался — показываем причину вместо бесконечной загрузки
+let started = false;
+function showFail(msg) {
+  if (started) return;
+  const el = document.getElementById('root');
+  if (!el) return;
+  el.innerHTML = '';
+  const box = document.createElement('div');
+  box.className = 'demo-fail';
+  box.innerHTML = '<h2>Не удалось запустить демо</h2><p>Попробуйте обновить страницу или открыть ссылку в Chrome, Edge или Яндекс Браузере на компьютере.</p><p class="demo-err"></p>';
+  box.querySelector('.demo-err').textContent = 'Техническая причина: ' + msg;
+  el.appendChild(box);
+}
+window.addEventListener('error', (e) => showFail(e.message || String(e.error)));
+window.addEventListener('unhandledrejection', (e) => showFail(String(e.reason?.message || e.reason)));
+setTimeout(() => showFail('платформа не запустилась за 30 секунд'), 30000);
+
 (async () => {
   const root = createRoot(document.getElementById('root'));
   try {
     await boot({ navigateRef });
   } catch (e) {
     console.error(e);
-    root.render(<div className="demo-fail"><h2>Не удалось запустить демо</h2><p>{String(e.message || e)}</p></div>);
+    showFail(String(e.message || e));
     return;
   }
   const [{ default: App }, ui] = await Promise.all([import('../client/src/App'), import('../client/src/components/ui')]);
   await import('../client/src/styles.css');
   const { ToastProvider, ConfirmProvider, PromptProvider } = ui;
+  started = true;
   root.render(
     <MemoryRouter>
       <NavBridge />

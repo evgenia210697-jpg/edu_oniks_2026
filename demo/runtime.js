@@ -7,39 +7,43 @@ const SID_KEY = 'lms-demo-sid';
 
 /* ---------- IndexedDB ---------- */
 let idb = null;
+// В некоторых встроенных просмотрщиках IndexedDB не отвечает вовсе — не ждём дольше пары секунд
+const withTimeout = (promise, ms, fallback) => Promise.race([promise, new Promise((r) => setTimeout(() => r(fallback), ms))]);
+
 function openIdb() {
-  return new Promise((resolve) => {
+  return withTimeout(new Promise((resolve) => {
     try {
       const r = indexedDB.open(IDB_NAME, 1);
       r.onupgradeneeded = () => { r.result.createObjectStore('kv'); r.result.createObjectStore('files'); };
       r.onsuccess = () => resolve(r.result);
       r.onerror = () => resolve(null);
+      r.onblocked = () => resolve(null);
     } catch { resolve(null); }
-  });
+  }), 2500, null);
 }
 function idbReq(store, mode, fn) {
   if (!idb) return Promise.resolve(null);
-  return new Promise((resolve) => {
+  return withTimeout(new Promise((resolve) => {
     try {
       const tx = idb.transaction(store, mode);
       const r = fn(tx.objectStore(store));
       tx.oncomplete = () => resolve(r && r.result);
       tx.onerror = () => resolve(null);
     } catch { resolve(null); }
-  });
+  }), 3000, null);
 }
 const idbGet = (store, key) => idbReq(store, 'readonly', (s) => s.get(key));
 const idbPut = (store, key, val) => idbReq(store, 'readwrite', (s) => s.put(val, key));
 function idbAll(store) {
   if (!idb) return Promise.resolve([]);
-  return new Promise((resolve) => {
+  return withTimeout(new Promise((resolve) => {
     try {
       const out = [];
       const r = idb.transaction(store).objectStore(store).openCursor();
       r.onsuccess = () => { const c = r.result; if (c) { out.push([c.key, c.value]); c.continue(); } else resolve(out); };
       r.onerror = () => resolve(out);
     } catch { resolve([]); }
-  });
+  }), 5000, []);
 }
 
 /* ---------- Сессия (вместо cookie) ---------- */
@@ -233,7 +237,9 @@ export async function boot({ navigateRef }) {
     for (const [k, v] of await idbAll('files')) files.set(k, v);
   } else {
     // исходная база примера хранится в base64 (хостинг демо не отдаёт двоичные .sqlite)
-    const b64 = (await (await fetch(new URL('seed/lms.b64.txt', base))).text()).trim();
+    const r = await fetch(new URL('seed/lms.b64.txt', base));
+    if (!r.ok) throw new Error(`не загрузился пример данных (HTTP ${r.status})`);
+    const b64 = (await r.text()).trim();
     bytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
     const manifest = await (await fetch(new URL('seed/manifest.json', base))).json();
     await Promise.all(manifest.map(async (key) => {

@@ -25,6 +25,10 @@ export default defineConfig({
     outDir: fileURLToPath(new URL('../release/demo', import.meta.url)),
     emptyOutDir: true,
     assetsInlineLimit: 300000, // шрифты встраиваются в CSS
-    chunkSizeWarningLimit: 4000,
+    assetsDir: '', // файлы рядом со страницей: код потом встраивается прямо в неё
+    chunkSizeWarningLimit: 8000,
+    cssCodeSplit: false,
+    modulePreload: false,
+    rollupOptions: { output: { inlineDynamicImports: true } }, // один файл кода — его встроит postbuild.js
   },
 });

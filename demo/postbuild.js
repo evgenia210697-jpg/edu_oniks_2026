@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const OUT = path.resolve(__dirname, '../release/demo');
-const assets = path.join(OUT, 'assets');
+const assets = OUT; // assetsDir: '' — всё лежит рядом со страницей
 
 for (const f of fs.readdirSync(assets)) {
   if (!/\.(m?js)$/.test(f)) continue;
@@ -17,17 +17,21 @@ for (const f of fs.readdirSync(assets)) {
   if (fixed !== src) fs.writeFileSync(p, fixed);
 }
 
+// Страница для claude.ai: весь код и стили встраиваются прямо в неё —
+// просмотрщик артефактов не загружает скрипты и стили из отдельных файлов.
 const html = fs.readFileSync(path.join(OUT, 'index.html'), 'utf8');
 const pick = (re) => (html.match(re) || [])[1];
-const js = pick(/<script type="module"[^>]*src="([^"]+)"/);
-const css = pick(/<link rel="stylesheet"[^>]*href="([^"]+)"/);
-const pre = pick(/<link rel="modulepreload"[^>]*href="([^"]+)"/);
+const read = (rel) => fs.readFileSync(path.join(OUT, rel.replace(/^\.\//, '')), 'utf8');
+const jsFile = pick(/<script type="module"[^>]*src="([^"]+)"/);
+const cssFiles = [...html.matchAll(/<link rel="stylesheet"[^>]*href="([^"]+)"/g)].map((m) => m[1]);
+const js = read(jsFile).replace(/<\/script/gi, '<\\/script');
+const css = cssFiles.map(read).join('\n').replace(/<\/style/gi, '<\\/style');
 fs.writeFileSync(path.join(OUT, 'demo.html'), [
   '<title>Учебный центр (демо)</title>',
   '<style>body{margin:0;background:#f3f5f8;color:#19212c}</style>',
-  `<link rel="stylesheet" href="${css}">`,
-  pre ? `<link rel="modulepreload" href="${pre}">` : '',
+  `<style>${css}</style>`,
   '<div id="root"><div class="demo-boot">Загружаем платформу…</div></div>',
-  `<script type="module" src="${js}"></script>`,
-].filter(Boolean).join('\n') + '\n');
-console.log('demo.html готова:', path.join(OUT, 'demo.html'));
+  `<script type="module">${js}</script>`,
+].join('\n') + '\n');
+const kb = Math.round(fs.statSync(path.join(OUT, 'demo.html')).size / 1024);
+console.log(`demo.html готова (${kb} КБ):`, path.join(OUT, 'demo.html'));
