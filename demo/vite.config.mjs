@@ -19,12 +19,14 @@ export default defineConfig({
       { find: /^express$/, replacement: shim('express.js') },
       { find: /^multer$/, replacement: shim('multer.js') },
       { find: /^(cookie-parser|nodemailer|child_process)$/, replacement: shim('empty.js') },
+      { find: /^pdfjs-dist\/legacy\/build\/pdf\.worker\.min\.mjs\?url$/, replacement: shim('pdf-worker-url.js') },
     ],
   },
   build: {
     outDir: fileURLToPath(new URL('../release/demo', import.meta.url)),
     emptyOutDir: true,
     assetsInlineLimit: 300000, // шрифты встраиваются в CSS
+    copyPublicDir: false,
     assetsDir: '', // файлы рядом со страницей: код потом встраивается прямо в неё
     chunkSizeWarningLimit: 8000,
     cssCodeSplit: false,

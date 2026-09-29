@@ -1,6 +1,17 @@
 // Демо-режим: сервер платформы работает прямо в браузере.
 // База SQLite (sql.js) и загруженные файлы сохраняются в IndexedDB этого браузера.
 import initSqlJs from 'sql.js/dist/sql-asm-memory-growth.js';
+// Пример данных встроен в страницу: база (base64) и файлы курса (data:-ссылки)
+import seedDb from './seed/lms.b64.txt?raw';
+
+const seedFiles = import.meta.glob('./seed/files/**/*', { query: '?inline', import: 'default', eager: true });
+
+function dataUrlToBlob(url) {
+  const [head, data] = url.split(',');
+  const mime = (head.match(/^data:([^;,]+)/) || [])[1] || 'application/octet-stream';
+  const bin = head.includes(';base64') ? atob(data) : decodeURIComponent(data);
+  return new Blob([Uint8Array.from(bin, (c) => c.charCodeAt(0))], { type: mime });
+}
 
 const IDB_NAME = 'lms-demo';
 const SID_KEY = 'lms-demo-sid';
@@ -221,7 +232,6 @@ export async function resetDemo() {
 
 /* ---------- Запуск ---------- */
 export async function boot({ navigateRef }) {
-  const base = new URL('.', document.baseURI);
   globalThis.process = { env: { SEED_DEMO: 'true', ADMIN_EMAIL: 'admin@company.local', ADMIN_PASSWORD: 'admin12345' }, emitWarning() {} };
   const files = new Map();
   globalThis.__DEMO = {
@@ -236,17 +246,13 @@ export async function boot({ navigateRef }) {
   if (bytes) {
     for (const [k, v] of await idbAll('files')) files.set(k, v);
   } else {
-    // исходная база примера хранится в base64 (хостинг демо не отдаёт двоичные .sqlite)
-    const r = await fetch(new URL('seed/lms.b64.txt', base));
-    if (!r.ok) throw new Error(`не загрузился пример данных (HTTP ${r.status})`);
-    const b64 = (await r.text()).trim();
-    bytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
-    const manifest = await (await fetch(new URL('seed/manifest.json', base))).json();
-    await Promise.all(manifest.map(async (key) => {
-      const blob = await (await fetch(new URL(`seed/files/${key}`, base))).blob();
+    bytes = Uint8Array.from(atob(seedDb.trim()), (ch) => ch.charCodeAt(0));
+    for (const [p, url] of Object.entries(seedFiles)) {
+      const key = p.replace('./seed/files/', '');
+      const blob = dataUrlToBlob(url);
       files.set(key, blob);
       idbPut('files', key, blob);
-    }));
+    }
     idbPut('kv', 'db', bytes);
   }
   globalThis.__DEMO.dbBytes = bytes;
