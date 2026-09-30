@@ -9,7 +9,6 @@ import { BlocksView } from '../../blocks/BlockView';
 import { TestRun, TestResult } from '../../blocks/TestRunner';
 import { Composer, Thread } from '../../components/Thread';
 import { TYPE_LABEL, fmtDate, plural } from '../../utils';
-import { celebrate } from '../../components/celebrate';
 
 /** Программа курса в режиме прохождения: модули, занятия, статусы */
 function ProgramNav({ data, courseId, lessonId, onNavigate }) {
@@ -116,7 +115,8 @@ function LectureView({ data, onComplete, busy, goPrev }) {
         )}
         right={!last
           ? <button type="button" className="btn btn-primary" onClick={() => { setPage(page + 1); top(); }}><span className="pb-label">Далее</span><ChevronRight size={17} /></button>
-          : <button type="button" className="btn btn-primary" onClick={onComplete} disabled={busy}>
+          : <button type="button" className="btn btn-primary" onClick={onComplete} disabled={busy} aria-busy={busy}>
+            {busy && <span className="spinner sm btn-spin" aria-hidden="true" />}
             <span className="pb-label">{data.next ? (completed ? 'Следующее занятие' : 'Завершить и продолжить') : (completed ? 'К программе курса' : 'Завершить урок')}</span><ChevronRight size={17} />
           </button>}
       />
@@ -147,7 +147,7 @@ function TestView({ data, reload, goNext }) {
         <div className="lesson-topline"><span className="badge badge-accent"><ListChecks size={13} />Тест</span></div>
         <h1 className="lesson-h1" style={{ marginBottom: 12 }}>{data.lesson.title}</h1>
         <TestRun attempt={run} lessonId={data.lesson.id} onCancel={data.preview ? () => setRun(null) : null}
-          onFinished={(r) => { setRun(null); setResult({ ...r, fresh: true }); window.scrollTo({ top: 0 }); if (r.passed) setTimeout(() => celebrate(), 250); if (!data.preview) reload(); }} />
+          onFinished={(r) => { setRun(null); setResult({ ...r, fresh: true }); window.scrollTo({ top: 0 }); if (!data.preview) reload(); }} />
       </div>
     );
   }

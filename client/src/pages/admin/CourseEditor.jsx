@@ -179,7 +179,7 @@ export default function CourseEditor() {
           <span className="hero-chip">{allLessons.length} {plural(allLessons.length, 'занятие', 'занятия', 'занятий')} · опубликовано {allLessons.filter((l) => l.status === 'published').length}</span>
         </div>
         {course.status !== 'published' && (
-          <button type="button" className="btn btn-primary mt-16 pulse" onClick={publishCourse}>
+          <button type="button" className="btn btn-primary mt-16" onClick={publishCourse}>
             <Send size={16} />Опубликовать курс
           </button>
         )}

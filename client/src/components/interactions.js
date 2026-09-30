@@ -1,12 +1,9 @@
 // Глобальные «тактильные» эффекты интерфейса, подключаются один раз при запуске:
 // • скользящая подложка у вкладок (как сегментированный переключатель iOS);
-// • мягкий наклон и блик карточек курсов за курсором (как карточки в Apple TV);
 // • предзагрузка данных страницы при наведении на ссылку — к клику всё уже загружено;
 // • мгновенная реакция :active на касание в iOS/Android.
 import { prefetch } from './ui';
 
-const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-const finePointer = () => window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
 
 /* ---------- Вкладки со скользящей подложкой ---------- */
 function syncTabs() {
@@ -32,27 +29,6 @@ function syncTabs() {
 }
 let tabsRaf = 0;
 const scheduleTabs = () => { cancelAnimationFrame(tabsRaf); tabsRaf = requestAnimationFrame(syncTabs); };
-
-/* ---------- Наклон карточек курсов ---------- */
-function onCardMove(e) {
-  const card = e.target.closest?.('.course-card:not(.add)');
-  if (!card || reduced() || !finePointer()) return;
-  const r = card.getBoundingClientRect();
-  const x = (e.clientX - r.left) / r.width;
-  const y = (e.clientY - r.top) / r.height;
-  card.style.setProperty('--rx', `${((0.5 - y) * 5).toFixed(2)}deg`);
-  card.style.setProperty('--ry', `${((x - 0.5) * 6).toFixed(2)}deg`);
-  card.style.setProperty('--mx', `${(x * 100).toFixed(1)}%`);
-  card.style.setProperty('--my', `${(y * 100).toFixed(1)}%`);
-  if (!card.classList.contains('tilting')) card.classList.add('tilting');
-}
-function onCardLeave(e) {
-  const card = e.target.closest?.('.course-card');
-  if (!card || (e.relatedTarget && card.contains(e.relatedTarget))) return;
-  card.classList.remove('tilting');
-  card.style.removeProperty('--rx');
-  card.style.removeProperty('--ry');
-}
 
 /* ---------- Предзагрузка по наведению ---------- */
 // Только безопасные запросы: открытие урока на сервере отмечает его как «начатый», поэтому уроки не предзагружаем
@@ -87,8 +63,6 @@ export function installInteractions() {
   new MutationObserver(scheduleTabs).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
   window.addEventListener('resize', scheduleTabs);
   document.fonts?.ready.then(scheduleTabs);
-  document.addEventListener('pointermove', onCardMove, { passive: true });
-  document.addEventListener('pointerout', onCardLeave, { passive: true });
   document.addEventListener('pointerover', onLinkOver, { passive: true });
   document.addEventListener('focusin', onLinkOver);
   // в Safari на iPhone :active срабатывает только при наличии обработчика касаний

@@ -1185,3 +1185,89 @@ button, a, [role="button"], .tab, .menu-item, summary { touch-action: manipulati
 /* Нижняя панель урока и шапка плеера — стекло */
 .player-bar { background: color-mix(in srgb, var(--surface) 78%, transparent); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass); }
 .course-card.tilting:active { transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) scale(.985); transition-duration: .1s; }
+
+/* =====================================================================
+   Тактичный отклик, как в обучающих сервисах: спокойно и ненавязчиво.
+   Без перелётов и подпрыгиваний, короткие мягкие переходы, минимум сдвигов.
+   (Этот блок последний — он смягчает всё, что описано выше.)
+   ===================================================================== */
+:root {
+  --ease: cubic-bezier(.2, .6, .2, 1);        /* мягкое замедление, без перелёта */
+  --ease-spring: cubic-bezier(.2, .6, .2, 1); /* пружины отключены — то же мягкое движение */
+  --t-fast: .15s;
+  --t: .22s;
+  --t-slow: .32s;
+}
+
+/* Нажатие — едва заметное, но ощутимое */
+.btn:active:not(:disabled) { transform: scale(.98); transition-duration: .1s; }
+.btn-icon:active:not(:disabled) { transform: scale(.95); }
+.tb-btn:active { transform: scale(.94); }
+.lesson-row:active, .prog-lesson:active, .outline-lesson:active, .side-lesson:active, .notif:active, .file-item:active, .cmdk-item:active,
+.menu-item:active:not(:disabled), .prog-module-head:active, .module-head:active, .nav-link:active, .tab:active { transform: scale(.995); }
+.radio-card:active, .answer-opt:active, .palette-item:active, .q-nav button:active { transform: scale(.99); }
+.course-card:active { transform: translateY(-1px) scale(.995); }
+
+/* Наведение — только цвет и мягкая тень, без «прыжков» */
+.lesson-row:hover:not(.locked), .answer-opt:hover { transform: none; }
+.radio-card:hover, .file-item:hover, .stat:hover { transform: none; box-shadow: var(--shadow-sm); }
+.palette-item:hover { transform: none; box-shadow: none; }
+.palette-item:hover svg { animation: none; }
+.nav-link:hover svg { transform: none; }
+.course-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -14px rgba(20, 30, 45, .28); }
+.course-card:hover .course-cover, .course-card:hover .cc-cover { transform: none; }
+.course-card::after { display: none; }
+.cp-swatch:hover { transform: scale(1.08); box-shadow: 0 2px 6px rgba(0, 0, 0, .15); }
+.color-swatch:hover { transform: scale(1.04); }
+.cmdk-item.active .cmdk-ic { transform: none; }
+.btn-primary:hover:not(:disabled) { filter: brightness(1.05); box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--accent) 60%, transparent); }
+
+/* Появление страниц и блоков — короткое, почти без сдвига */
+.route-in { animation: route-in .26s var(--ease) both; }
+@keyframes route-in { from { opacity: 0; transform: translateY(4px); } }
+.page-in { animation: page-in .28s var(--ease) both; }
+@keyframes page-in { from { opacity: 0; transform: translateX(8px); } }
+@keyframes page-in-back { from { opacity: 0; transform: translateX(-8px); } }
+.stagger > * { animation: rise .34s var(--ease) both; }
+.stagger > *:nth-child(2) { animation-delay: .03s; }
+.stagger > *:nth-child(3) { animation-delay: .06s; }
+.stagger > *:nth-child(4) { animation-delay: .09s; }
+.stagger > *:nth-child(n+5) { animation-delay: .12s; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+.course-cover img, .b-image img, .avatar img, .q-image { animation: img-in .35s var(--ease) both; }
+@keyframes img-in { from { opacity: 0; } }
+.quickstart, .next-bar, .certificate { animation-duration: .3s; animation-timing-function: var(--ease); }
+
+/* Окна, меню, уведомления — мягкое проявление */
+.modal { animation: modal-in .24s var(--ease); }
+@keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(.985); } }
+.modal-backdrop.closing .modal { animation: modal-out .16s var(--ease) forwards; }
+@keyframes modal-out { to { opacity: 0; transform: translateY(4px) scale(.99); } }
+.cmdk { animation: modal-in .22s var(--ease); }
+.menu { animation: menu-in .16s var(--ease); }
+@keyframes menu-in { from { opacity: 0; transform: translateY(-3px); } }
+@keyframes menu-out { to { opacity: 0; transform: translateY(-2px); } }
+.toast { animation: toast-in .26s var(--ease); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(4px); } }
+@media (max-width: 640px) {
+  .modal { animation: sheet-in .32s var(--ease); }
+  .modal-backdrop.closing .modal { animation: sheet-out .2s var(--ease) forwards; }
+}
+
+/* Выбор ответа и отметки — плавно, без подскока */
+.answer-opt.picked .mark, .status-ic.done svg, .qs-steps li.done .qs-num { animation: pick .22s var(--ease) both; }
+@keyframes pick { from { transform: scale(.7); opacity: .4; } to { transform: scale(1); opacity: 1; } }
+.answer-opt.selected, .answer-opt.picked { transition: background-color .2s var(--ease), border-color .2s var(--ease); }
+
+/* Вкладки и переключатели — спокойнее */
+.tab-ind { transition: transform .3s var(--ease), width .3s var(--ease), height .3s var(--ease), opacity .2s; }
+.toggle .track::after { transition: transform .24s var(--ease), width .18s var(--ease); }
+
+/* Прогресс заполняется ровно */
+.progress > div, .hero-progress > div, .pt-bar > div, .qs-progress > div { transition: width .7s var(--ease); }
+.ring svg circle { transition: stroke-dashoffset .8s var(--ease) !important; }
+
+/* Кнопка с индикатором ожидания: видно, что нажатие принято */
+.btn-spin { width: 15px; height: 15px; border-width: 2px; border-color: rgba(255, 255, 255, .35); border-top-color: #fff; }
+.btn[aria-busy="true"] { cursor: progress; }

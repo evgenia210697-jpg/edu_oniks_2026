@@ -29,7 +29,7 @@ export default function CoursePage() {
     if (!data?.completedAt || data.preview) return;
     const key = `lms-celebrated-course-${data.id}`;
     try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch { return; }
-    setTimeout(() => celebrate({ count: 180 }), 350);
+    setTimeout(() => celebrate({ count: 70, duration: 2200 }), 400);
   }, [data]);
   if (loading && !data) return <Loading />;
   if (error) return <ErrorBox error={error} onRetry={reload} />;

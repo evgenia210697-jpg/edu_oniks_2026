@@ -4,7 +4,8 @@ export function celebrate({ count = 140, duration = 2600 } = {}) {
   if (typeof window === 'undefined') return;
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
   const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#2f5bea';
-  const colors = [accent, '#f5b400', '#15935b', '#e0730b', '#c2408f', '#2878d6'];
+  // спокойная палитра: фирменный цвет и мягкие оттенки
+  const colors = [accent, '#9db4f5', '#8fd3b0', '#f5d27a', '#c9d3e6'];
   const canvas = document.createElement('canvas');
   canvas.className = 'confetti-canvas';
   canvas.setAttribute('aria-hidden', 'true');
@@ -19,11 +20,11 @@ export function celebrate({ count = 140, duration = 2600 } = {}) {
   const parts = Array.from({ length: count }, (_, i) => {
     const left = i % 2 === 0;
     const angle = (left ? -60 : -120) + (Math.random() - 0.5) * 50;
-    const speed = 9 + Math.random() * 9;
+    const speed = 7 + Math.random() * 6;
     return {
       x: left ? w * 0.12 : w * 0.88, y: h * 0.92,
       vx: Math.cos((angle * Math.PI) / 180) * speed, vy: Math.sin((angle * Math.PI) / 180) * speed,
-      size: 6 + Math.random() * 6, rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.3,
+      size: 5 + Math.random() * 4, rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.3,
       color: colors[i % colors.length], shape: Math.random() > 0.5 ? 'rect' : 'circle',
     };
   });
