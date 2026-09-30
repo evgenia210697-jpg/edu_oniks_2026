@@ -312,7 +312,7 @@ export default function Users() {
           <div className="table-wrap">
             <table className="table">
               <thead><tr>
-                {isAdmin && <th className="w-check"><input type="checkbox" checked={allSel} onChange={() => setSel(allSel ? [] : list.map((u) => u.id))} /></th>}
+                {isAdmin && <th className="w-check"><input type="checkbox" aria-label="Выбрать всех" checked={allSel} ref={(el) => { if (el) el.indeterminate = !allSel && sel.length > 0; }} onChange={() => setSel(allSel ? [] : list.map((u) => u.id))} /></th>}
                 <th>Сотрудник</th><th>Отдел / должность</th>{role !== 'admin' && role !== 'curator' && <><th>Курсы</th><th>Прогресс</th><th>Баллы</th></>}<th>Роль</th><th>Был(а) онлайн</th>
               </tr></thead>
               <tbody>

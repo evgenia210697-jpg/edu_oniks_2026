@@ -34,7 +34,7 @@ export function PickUsersModal({ title, exclude = [], onClose, onPick, okLabel =
         <div className="card table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
           <table className="table">
             <thead><tr>
-              <th className="w-check"><input type="checkbox" checked={allSel} onChange={() => setSel(allSel ? sel.filter((id) => !list.some((u) => u.id === id)) : [...new Set([...sel, ...list.map((u) => u.id)])])} /></th>
+              <th className="w-check"><input type="checkbox" aria-label="Выбрать всех" checked={allSel} ref={(el) => { if (el) el.indeterminate = !allSel && list.some((u) => sel.includes(u.id)); }} onChange={() => setSel(allSel ? sel.filter((id) => !list.some((u) => u.id === id)) : [...new Set([...sel, ...list.map((u) => u.id)])])} /></th>
               <th>Сотрудник</th><th>Отдел</th><th>Роль</th>
             </tr></thead>
             <tbody>

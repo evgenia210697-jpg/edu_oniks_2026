@@ -207,7 +207,7 @@ export function BlockEdit({ block, onChange, autoFocus }) {
         <div>
           {(d.items || []).map((it, i) => (
             <div key={it.id} className="opt-row">
-              <input type="checkbox" disabled style={{ width: 18, height: 18 }} />
+              <input type="checkbox" disabled />
               <input className="input input-sm" value={it.text} placeholder={`Пункт ${i + 1}`} autoFocus={autoFocus && i === 0}
                 onChange={(e) => set({ items: d.items.map((x) => (x.id === it.id ? { ...x, text: e.target.value } : x)) })}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); set({ items: [...d.items.slice(0, i + 1), { id: uid(), text: '' }, ...d.items.slice(i + 1)] }); } }} />
