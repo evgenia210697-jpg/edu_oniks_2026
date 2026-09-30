@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, Pencil, KeyRound, Power, Trash2, BookPlus, ChevronDown, ChevronUp, Mail, Phone, Building2, RotateCcw, CheckCircle2, X, MoreHorizontal, ListChecks } from 'lucide-react';
+import { ChevronLeft, Pencil, KeyRound, Power, Trash2, BookPlus, ChevronDown, ChevronUp, Mail, Phone, Building2, RotateCcw, CheckCircle2, X, MoreHorizontal, ListChecks, Send, Link2 } from 'lucide-react';
 import { api } from '../../api';
 import { useAuth } from '../../App';
 import { useApi, Loading, ErrorBox, Avatar, Progress, Modal, useToast, useConfirm, StatusIcon, TypeIcon, Menu, MenuItem, STATUS_TEXT, Empty } from '../../components/ui';
-import { UserFormModal, CredsBox } from './Users';
+import { UserFormModal, CredsBox, InviteBox } from './Users';
 import { TestResult } from '../../blocks/TestRunner';
 import { fmtDate, fmtRelative, ROLE_LABEL } from '../../utils';
 import { LessonMeta } from '../student/CoursePage';
@@ -77,6 +77,15 @@ export default function UserDetail() {
     const r = await api.post(`/admin/users/${u.id}/reset-password`);
     setModal({ type: 'creds', list: [{ name: u.name, email: u.email, password: r.password }] });
   };
+  // новое приглашение: письмо со ссылкой, по которой сотрудник сам задаёт пароль
+  const sendInvite = async (asReset) => {
+    if (asReset && !(await confirm({ title: 'Отправить ссылку для смены пароля?', text: `На ${u.email} придёт письмо со ссылкой. По ней сотрудник задаст новый пароль. Текущий пароль продолжит работать, пока ссылкой не воспользуются.`, ok: 'Отправить' }))) return;
+    try {
+      const invite = await api.post(`/admin/users/${u.id}/invite`, { origin: window.location.origin });
+      setModal({ type: 'invite', list: [{ name: u.name, email: u.email, invite }] });
+      reload();
+    } catch (e) { toast.error(e); }
+  };
   const toggleActive = async () => {
     if (u.isActive && !(await confirm({ title: 'Отключить доступ?', text: 'Сотрудник не сможет войти. Данные и прогресс сохранятся — доступ можно вернуть.', ok: 'Отключить', danger: true }))) return;
     await api.put(`/admin/users/${u.id}`, { isActive: !u.isActive }); toast(u.isActive ? 'Доступ отключён' : 'Доступ восстановлен'); reload();
@@ -105,14 +114,24 @@ export default function UserDetail() {
               {u.phone && <span className="row" style={{ gap: 5 }}><Phone size={14} />{u.phone}</span>}
               {(u.department || u.position) && <span className="row" style={{ gap: 5 }}><Building2 size={14} />{[u.department, u.position].filter(Boolean).join(' · ')}</span>}
             </div>
-            <div className="small muted mt-8">Добавлен {fmtDate(u.createdAt)} · был(а) онлайн: {fmtRelative(u.lastSeenAt)}</div>
+            <div className="small muted mt-8">Добавлен {fmtDate(u.createdAt)} · {u.invitePending ? 'ещё не заходил(а)' : `был(а) онлайн: ${fmtRelative(u.lastSeenAt)}`}</div>
+            {u.invitePending && u.isActive && (
+              <div className="alert alert-info mt-16 small invite-pending">
+                <Send size={16} />
+                <div className="flex-1">Приглашение отправлено {fmtRelative(u.invitedAt)}, но ещё не принято. Ссылка действует до {fmtDate(u.inviteExpiresAt)}.</div>
+                {isAdmin && <button type="button" className="btn btn-secondary btn-sm" onClick={() => sendInvite(false)}><Send size={14} />Отправить снова</button>}
+              </div>
+            )}
             {u.comment && <div className="alert alert-info mt-16 small">{u.comment}</div>}
           </div>
           {isAdmin && (
             <div className="row row-wrap">
               <button className="btn btn-secondary" onClick={() => setModal({ type: 'edit' })}><Pencil size={15} />Изменить</button>
               <Menu trigger={({ toggle }) => <button className="btn btn-secondary btn-icon" onClick={toggle}><MoreHorizontal size={18} /></button>}>
-                <MenuItem icon={KeyRound} onClick={resetPw}>Сбросить пароль</MenuItem>
+                {u.isActive && (u.invitePending
+                  ? <MenuItem icon={Send} onClick={() => sendInvite(false)}>Отправить приглашение снова</MenuItem>
+                  : <MenuItem icon={Link2} onClick={() => sendInvite(true)}>Отправить ссылку для смены пароля</MenuItem>)}
+                <MenuItem icon={KeyRound} onClick={resetPw}>Сбросить пароль вручную</MenuItem>
                 <MenuItem icon={Power} onClick={toggleActive}>{u.isActive ? 'Отключить доступ' : 'Восстановить доступ'}</MenuItem>
                 {u.id !== me.id && <><div className="menu-sep" /><MenuItem icon={Trash2} danger onClick={remove}>Удалить сотрудника</MenuItem></>}
               </Menu>
@@ -157,6 +176,7 @@ export default function UserDetail() {
       )}
 
       {modal?.type === 'edit' && <UserFormModal user={u} onClose={() => setModal(null)} onSaved={reload} />}
+      {modal?.type === 'invite' && <Modal title="Приглашение отправлено" onClose={() => setModal(null)} footer={<button className="btn btn-primary" onClick={() => setModal(null)}>Готово</button>}><InviteBox list={modal.list} /></Modal>}
       {modal?.type === 'creds' && <Modal title="Новый пароль" onClose={() => setModal(null)} footer={<button className="btn btn-primary" onClick={() => setModal(null)}>Готово</button>}><CredsBox list={modal.list} /></Modal>}
       {modal?.type === 'enroll' && <EnrollOne userId={u.id} exclude={courses.map((c) => c.id)} onClose={() => setModal(null)} onDone={reload} />}
       {modal?.type === 'attempt' && <Modal title="Ответы в попытке" size="wide" onClose={() => setModal(null)}><TestResult result={modal.attempt} /></Modal>}

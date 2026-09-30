@@ -82,6 +82,8 @@ function publicUser(u) {
     avatarFileId: u.avatar_file_id || null,
     isActive: !!u.is_active, emailNotify: !!u.email_notify,
     createdAt: u.created_at, lastSeenAt: u.last_seen_at,
+    // приглашён, но ещё не перешёл по ссылке
+    invitePending: !!u.invite_token_hash, invitedAt: u.invited_at || null, inviteExpiresAt: u.invite_expires_at || null,
   };
 }
 

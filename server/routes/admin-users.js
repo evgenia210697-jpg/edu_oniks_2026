@@ -5,6 +5,7 @@ const auth = require('../auth');
 const { fail, int, str, sendCsv, courseCard } = require('../util');
 const logic = require('../logic');
 const { notify } = require('../notify');
+const invites = require('../invites');
 
 const router = express.Router();
 const admin = auth.requireRole('admin');
@@ -70,12 +71,14 @@ router.get('/users/export', staff, (_req, res) => {
 
 function createUser(b, byAdmin) {
   const email = str(b.email, 200).toLowerCase();
-  const name = str(b.name, 120);
-  if (!name) fail(400, 'Укажите ФИО');
   if (!emailOk(email)) fail(400, `Некорректный email: ${email || '(пусто)'}`);
+  // при приглашении имя можно не указывать — сотрудник впишет его сам
+  const name = str(b.name, 120) || (b.invite ? email.split('@')[0] : '');
+  if (!name) fail(400, 'Укажите ФИО');
   if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) fail(409, `Пользователь с email ${email} уже есть`);
   const role = ROLES.includes(b.role) ? b.role : 'student';
-  const password = b.password && String(b.password).length >= 6 ? String(b.password) : auth.generatePassword();
+  // по приглашению пароль задаёт сам сотрудник — до этого войти по паролю нельзя
+  const password = !b.invite && b.password && String(b.password).length >= 6 ? String(b.password) : auth.generatePassword(b.invite ? 24 : 10);
   const id = db.prepare(`INSERT INTO users (email, name, password_hash, role, position, department, phone, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(email, name, auth.hashPassword(password), role, str(b.position, 120), str(b.department, 120), str(b.phone, 40), str(b.comment, 500)).lastInsertRowid;
   const courseIds = (b.courseIds || []).map(int).filter(Boolean);
@@ -83,14 +86,24 @@ function createUser(b, byAdmin) {
     const c = db.prepare('SELECT * FROM courses WHERE id = ?').get(cid);
     if (!c) continue;
     db.prepare('INSERT OR IGNORE INTO enrollments (user_id, course_id) VALUES (?, ?)').run(id, cid);
-    if (c.status === 'published') notify(id, { type: 'enrolled', title: `Вам открыт курс «${c.title}»`, body: 'Можно приступать к обучению.', link: `/course/${c.id}` });
+    if (c.status === 'published') notify(id, { type: 'enrolled', title: `Вам открыт курс «${c.title}»`, body: 'Можно приступать к обучению.', link: `/course/${c.id}` }, { email: !b.invite });
   }
-  return { id, email, name, password };
+  return b.invite ? { id, email, name } : { id, email, name, password };
 }
 
 router.post('/users', admin, (req, res) => {
-  const r = tx(() => createUser(req.body || {}, req.user));
-  res.json({ ...auth.publicUser(getUser(r.id)), password: r.password });
+  const b = req.body || {};
+  const r = tx(() => createUser(b, req.user));
+  const invite = b.invite ? invites.inviteUser(req, r.id) : null;
+  res.json({ ...auth.publicUser(getUser(r.id)), password: r.password, invite });
+});
+
+// Отправить приглашение ещё раз (новая ссылка, старая перестаёт действовать).
+// Для уже работающего сотрудника это ссылка, по которой он задаст новый пароль.
+router.post('/users/:id/invite', admin, (req, res) => {
+  const u = getUser(req.params.id);
+  if (!u.is_active) fail(400, 'Доступ сотрудника отключён — сначала включите его');
+  res.json(invites.inviteUser(req, u.id));
 });
 
 // Массовое добавление (из таблицы)
@@ -100,7 +113,9 @@ router.post('/users/import', admin, (req, res) => {
   const created = []; const errors = [];
   rows.forEach((r, i) => {
     try {
-      created.push(tx(() => createUser({ ...r, role: 'student', courseIds }, req.user)));
+      const invite = !!req.body?.invite;
+      const u = tx(() => createUser({ ...r, role: 'student', courseIds, invite }, req.user));
+      created.push(invite ? { ...u, invite: invites.inviteUser(req, u.id) } : u);
     } catch (e) { errors.push({ row: i + 1, email: r.email, error: e.message }); }
   });
   res.json({ created, errors });
@@ -156,7 +171,10 @@ router.put('/users/:id', admin, (req, res) => {
   db.prepare(`UPDATE users SET email = ?, name = ?, role = ?, position = ?, department = ?, phone = ?, comment = ?, is_active = ? WHERE id = ?`)
     .run(email, str(b.name ?? u.name, 120) || u.name, role, str(b.position ?? u.position, 120), str(b.department ?? u.department, 120),
       str(b.phone ?? u.phone, 40), str(b.comment ?? u.comment, 500), isActive, u.id);
-  if (!isActive) db.prepare('DELETE FROM sessions WHERE user_id = ?').run(u.id);
+  if (!isActive) {
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(u.id);
+    db.prepare('UPDATE users SET invite_token_hash = NULL, invite_expires_at = NULL WHERE id = ?').run(u.id);
+  }
   if (b.password) {
     if (String(b.password).length < 6) fail(400, 'Пароль — минимум 6 символов');
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(auth.hashPassword(b.password), u.id);

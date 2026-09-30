@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { UserPlus, Download, Search, Users as UsersIcon, Activity, TrendingUp, Clock, Award, FileSpreadsheet, BookPlus, Copy, CheckCircle2 } from 'lucide-react';
+import { UserPlus, Download, Search, Users as UsersIcon, Activity, TrendingUp, Clock, Award, FileSpreadsheet, BookPlus, Copy, CheckCircle2, Send, KeyRound, MailWarning, ExternalLink } from 'lucide-react';
 import { api } from '../../api';
 import { useAuth } from '../../App';
-import { useApi, Loading, ErrorBox, Avatar, Progress, Modal, Field, useToast, Empty, CountUp } from '../../components/ui';
+import { useApi, Loading, ErrorBox, Avatar, Progress, Modal, Field, useToast, Empty, CountUp, Toggle } from '../../components/ui';
 import { fmtRelative, ROLE_LABEL, copyText, plural, downloadBlob } from '../../utils';
 
 function credsText(list, url) {
@@ -22,6 +22,48 @@ export function CredsBox({ list }) {
         <button className="btn btn-secondary" onClick={() => copyText(text).then(() => toast('Скопировано'))}><Copy size={16} />Скопировать</button>
         {list.length > 1 && <button className="btn btn-secondary" onClick={() => downloadBlob('Доступы сотрудников.csv', '﻿' + ['ФИО;Логин;Пароль', ...list.map((u) => `${u.name};${u.email};${u.password}`)].join('\r\n'))}><Download size={16} />Скачать списком</button>}
       </div>
+    </div>
+  );
+}
+
+/** Результат приглашения: статус письма и личная ссылка (её можно отправить в мессенджере) */
+export function InviteBox({ list }) {
+  const toast = useToast();
+  const nav = useNavigate();
+  // в демо-версии писем нет, а ссылка вне демо не откроется — показываем страницу приглашения прямо здесь
+  const demo = !!globalThis.__DEMO;
+  const sent = list.filter((x) => x.invite?.emailSent).length;
+  const copy = (text, msg = 'Ссылка скопирована') => copyText(text).then(() => toast(msg)).catch(() => toast.error('Не удалось скопировать — выделите ссылку вручную'));
+  const all = list.map((x) => `${x.name} (${x.email}): ${x.invite.link}`).join('\n');
+  return (
+    <div className="invite-box">
+      {demo ? (
+        <div className="alert alert-info"><Send size={18} /><div><b>Демо-версия:</b> письма здесь не отправляются. На рабочем сервере сотрудник получит письмо с кнопкой «Принять приглашение».
+          <div className="small muted mt-8">Чтобы увидеть, что увидит сотрудник, нажмите «Открыть как сотрудник», затем «Выйти и принять приглашение».</div></div></div>
+      ) : sent === list.length ? (
+        <div className="alert alert-success"><CheckCircle2 size={18} /><div>{list.length === 1
+          ? <>Приглашение отправлено на <b>{list[0].email}</b>. Сотрудник откроет ссылку из письма, задаст пароль и сразу попадёт на платформу.</>
+          : <>Приглашения отправлены: {list.length}. Каждый сотрудник получит письмо со своей ссылкой.</>}
+          <div className="small muted mt-8">Ссылка действует 7 дней. Если письмо не пришло — проверьте «Спам» или отправьте ссылку ниже в мессенджере.</div></div></div>
+      ) : (
+        <div className="alert alert-warning"><MailWarning size={18} /><div><b>Почта на сервере не настроена</b> — письмо не отправлено. Скопируйте {list.length === 1 ? 'ссылку' : 'ссылки'} и отправьте {list.length === 1 ? 'сотруднику' : 'сотрудникам'} сами (почтой, в мессенджере).
+          <div className="small muted mt-8">Чтобы письма уходили автоматически, IT-специалист заполняет блок SMTP в файле .env — инструкция в README.</div></div></div>
+      )}
+      <div className="stack" style={{ gap: 8, maxHeight: 280, overflowY: 'auto' }}>
+        {list.map((x) => (
+          <div key={x.email}>
+            {list.length > 1 && <div className="small bold mb-8">{x.name} · <span className="muted">{x.email}</span></div>}
+            <div className="invite-link">
+              <code title={x.invite.link}>{x.invite.link}</code>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => copy(x.invite.link)}><Copy size={14} />Копировать</button>
+              {demo
+                ? <button type="button" className="btn btn-primary btn-sm" onClick={() => nav(x.invite.path)}><ExternalLink size={14} />Открыть как сотрудник</button>
+                : list.length === 1 && <a className="btn btn-ghost btn-sm" href={x.invite.path} target="_blank" rel="noreferrer" title="Открыть страницу приглашения"><ExternalLink size={14} /></a>}
+            </div>
+          </div>
+        ))}
+      </div>
+      {list.length > 1 && <button type="button" className="btn btn-secondary" onClick={() => copy(all, 'Все ссылки скопированы')}><Copy size={16} />Скопировать все ссылки</button>}
     </div>
   );
 }
@@ -46,6 +88,7 @@ export function UserFormModal({ user, onClose, onSaved, departments = [] }) {
   const { data: courses } = useApi(isNew ? '/admin/courses' : null);
   const [f, setF] = useState(user ? { ...user, password: '' } : { name: '', email: '', role: 'student', department: '', position: '', phone: '', comment: '', password: '', courseIds: [] });
   const [autoPw, setAutoPw] = useState(true);
+  const [mode, setMode] = useState('invite'); // invite — письмо со ссылкой; password — пароль задаёт администратор
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState(null);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -54,8 +97,9 @@ export function UserFormModal({ user, onClose, onSaved, departments = [] }) {
     e.preventDefault(); setBusy(true);
     try {
       if (isNew) {
-        const r = await api.post('/admin/users', { ...f, password: autoPw ? '' : f.password });
-        setCreated({ name: r.name, email: r.email, password: r.password });
+        const invite = mode === 'invite';
+        const r = await api.post('/admin/users', { ...f, invite, origin: window.location.origin, password: !invite && !autoPw ? f.password : '' });
+        setCreated({ name: r.name, email: r.email, password: r.password, invite: r.invite });
         onSaved?.(r);
       } else {
         const r = await api.put(`/admin/users/${user.id}`, { ...f, password: f.password || undefined });
@@ -65,17 +109,35 @@ export function UserFormModal({ user, onClose, onSaved, departments = [] }) {
   };
 
   if (created) {
-    return <Modal title="Сотрудник добавлен" onClose={onClose} footer={<button className="btn btn-primary" onClick={onClose}>Готово</button>}><CredsBox list={[created]} /></Modal>;
+    return (
+      <Modal title={created.invite ? 'Приглашение создано' : 'Сотрудник добавлен'} onClose={onClose} footer={<button className="btn btn-primary" onClick={onClose}>Готово</button>}>
+        {created.invite ? <InviteBox list={[created]} /> : <CredsBox list={[created]} />}
+      </Modal>
+    );
   }
   return (
-    <Modal title={isNew ? 'Новый сотрудник' : 'Редактировать сотрудника'} size="wide" onClose={onClose} footer={<>
+    <Modal title={isNew ? 'Пригласить сотрудника' : 'Редактировать сотрудника'} size="wide" onClose={onClose} footer={<>
       <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
-      <button className="btn btn-primary" form="user-form" disabled={busy}>{isNew ? 'Добавить' : 'Сохранить'}</button>
+      <button className="btn btn-primary" form="user-form" disabled={busy}>{isNew ? (mode === 'invite' ? <><Send size={16} />Отправить приглашение</> : 'Добавить') : 'Сохранить'}</button>
     </>}>
       <form id="user-form" onSubmit={submit}>
+        {isNew && (
+          <Field label="Как выдать доступ">
+            <div className="radio-cards" style={{ gridTemplateColumns: '1fr 1fr' }}>
+              <div className={`radio-card ${mode === 'invite' ? 'active' : ''}`} onClick={() => setMode('invite')} role="button" tabIndex={0}>
+                <input type="radio" checked={mode === 'invite'} readOnly /><div><div className="bold">Приглашение на e-mail</div><div className="small muted">Сотрудник получит письмо и сам задаст пароль</div></div>
+              </div>
+              <div className={`radio-card ${mode === 'password' ? 'active' : ''}`} onClick={() => setMode('password')} role="button" tabIndex={0}>
+                <input type="radio" checked={mode === 'password'} readOnly /><div><div className="bold">Выдать пароль</div><div className="small muted">Вы передадите логин и пароль сами</div></div>
+              </div>
+            </div>
+          </Field>
+        )}
         <div className="grid-2">
-          <Field label="ФИО"><input className="input" value={f.name} onChange={set('name')} required autoFocus placeholder="Иванов Иван" /></Field>
-          <Field label="Email (будет логином)"><input className="input" type="email" value={f.email} onChange={set('email')} required placeholder="ivanov@company.ru" /></Field>
+          <Field label="Email (будет логином)"><input className="input" type="email" value={f.email} onChange={set('email')} required autoFocus={isNew} placeholder="ivanov@company.ru" /></Field>
+          <Field label={isNew && mode === 'invite' ? 'ФИО (необязательно)' : 'ФИО'} hint={isNew && mode === 'invite' ? 'Если не знаете — сотрудник впишет сам' : undefined}>
+            <input className="input" value={f.name} onChange={set('name')} required={!isNew || mode !== 'invite'} autoFocus={!isNew} placeholder="Иванов Иван" />
+          </Field>
           <Field label="Отдел">
             <input className="input" value={f.department} onChange={set('department')} list="departments" placeholder="Отдел продаж" />
             <datalist id="departments">{departments.map((d) => <option key={d} value={d} />)}</datalist>
@@ -90,8 +152,10 @@ export function UserFormModal({ user, onClose, onSaved, departments = [] }) {
         </div>
         {isNew ? (
           <>
-            <div className="mb-16"><label className="check"><input type="checkbox" checked={autoPw} onChange={(e) => setAutoPw(e.target.checked)} />Сгенерировать пароль автоматически</label></div>
-            {!autoPw && <Field label="Пароль" hint="Минимум 6 символов"><input className="input" value={f.password} onChange={set('password')} minLength={6} required /></Field>}
+            {mode === 'password' && <>
+              <div className="mb-16"><label className="check"><input type="checkbox" checked={autoPw} onChange={(e) => setAutoPw(e.target.checked)} />Сгенерировать пароль автоматически</label></div>
+              {!autoPw && <Field label="Пароль" hint="Минимум 6 символов"><input className="input" value={f.password} onChange={set('password')} minLength={6} required /></Field>}
+            </>}
             <Field label="Сразу открыть курсы"><CourseChecklist courses={courses} value={f.courseIds} onChange={(courseIds) => setF({ ...f, courseIds })} /></Field>
           </>
         ) : (
@@ -108,6 +172,7 @@ function ImportModal({ onClose, onDone }) {
   const { data: courses } = useApi('/admin/courses');
   const [text, setText] = useState('');
   const [courseIds, setCourseIds] = useState([]);
+  const [invite, setInvite] = useState(true);
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const rows = useMemo(() => text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => {
@@ -116,27 +181,27 @@ function ImportModal({ onClose, onDone }) {
     const email = emailIdx >= 0 ? p[emailIdx] : '';
     const rest = p.filter((_, i) => i !== emailIdx);
     return { name: rest[0] || '', email, department: rest[1] || '', position: rest[2] || '' };
-  }).filter((r) => !/^фио$/i.test(r.name)), [text]);
+  }).filter((r) => !/^фио$/i.test(r.name) && r.email), [text]);
 
   const run = async () => {
     setBusy(true);
-    try { const r = await api.post('/admin/users/import', { rows, courseIds }); setResult(r); onDone(); } catch (e) { toast.error(e); } finally { setBusy(false); }
+    try { const r = await api.post('/admin/users/import', { rows, courseIds, invite, origin: window.location.origin }); setResult(r); onDone(); } catch (e) { toast.error(e); } finally { setBusy(false); }
   };
 
   if (result) {
     return (
-      <Modal title={`Добавлено сотрудников: ${result.created.length}`} size="wide" onClose={onClose} footer={<button className="btn btn-primary" onClick={onClose}>Готово</button>}>
+      <Modal title={invite ? `Приглашено сотрудников: ${result.created.length}` : `Добавлено сотрудников: ${result.created.length}`} size="wide" onClose={onClose} footer={<button className="btn btn-primary" onClick={onClose}>Готово</button>}>
         {result.errors.length > 0 && <div className="alert alert-warning mb-16"><div>Не добавлены ({result.errors.length}):<br />{result.errors.map((e) => <div key={e.row} className="small">Строка {e.row}: {e.error}</div>)}</div></div>}
-        {result.created.length > 0 && <CredsBox list={result.created} />}
+        {result.created.length > 0 && (invite ? <InviteBox list={result.created} /> : <CredsBox list={result.created} />)}
       </Modal>
     );
   }
   return (
     <Modal title="Добавить сотрудников списком" size="wide" onClose={onClose} footer={<>
       <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
-      <button className="btn btn-primary" disabled={!rows.length || busy} onClick={run}>Добавить {rows.length || ''}</button>
+      <button className="btn btn-primary" disabled={!rows.length || busy} onClick={run}>{invite ? <><Send size={16} />Пригласить {rows.length || ''}</> : `Добавить ${rows.length || ''}`}</button>
     </>}>
-      <p className="muted small mb-16">Скопируйте столбцы из Excel и вставьте ниже. Порядок: <b>ФИО, Email, Отдел, Должность</b> — по одному сотруднику в строке. Пароли сгенерируются автоматически.</p>
+      <p className="muted small mb-16">Скопируйте столбцы из Excel и вставьте ниже. Порядок: <b>ФИО, Email, Отдел, Должность</b> — по одному сотруднику в строке. Для приглашений достаточно одних e-mail — имя сотрудник впишет сам.</p>
       <textarea className="textarea" style={{ minHeight: 150, fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13 }} value={text} onChange={(e) => setText(e.target.value)}
         placeholder={'Иванов Иван\tivanov@company.ru\tОтдел продаж\tМенеджер\nПетрова Анна\tpetrova@company.ru\tСклад\tКладовщик'} />
       {rows.length > 0 && (
@@ -146,6 +211,7 @@ function ImportModal({ onClose, onDone }) {
           </table>
         </div>
       )}
+      <div className="mt-16"><Toggle checked={invite} onChange={setInvite} label="Отправить приглашения на e-mail" hint={invite ? 'Каждый получит письмо со своей ссылкой и сам задаст пароль' : 'Пароли сгенерируются автоматически — их нужно будет передать сотрудникам'} /></div>
       <Field label="Открыть курсы всем добавленным" style={{ marginTop: 16 }}><CourseChecklist courses={courses} value={courseIds} onChange={setCourseIds} /></Field>
     </Modal>
   );
@@ -209,8 +275,8 @@ export default function Users() {
       <div className="page-head">
         <div className="flex-1"><h1>Сотрудники</h1><div className="page-sub">Ученики, кураторы и администраторы платформы. Здесь же — прогресс обучения.</div></div>
         <a className="btn btn-secondary" href="/api/admin/users/export"><Download size={16} />Выгрузить</a>
-        {isAdmin && <button className="btn btn-secondary" onClick={() => setModal({ type: 'import' })}><FileSpreadsheet size={16} />Добавить списком</button>}
-        {isAdmin && <button className="btn btn-primary" onClick={() => setModal({ type: 'new' })}><UserPlus size={16} />Добавить сотрудника</button>}
+        {isAdmin && <button className="btn btn-secondary" onClick={() => setModal({ type: 'import' })}><FileSpreadsheet size={16} />Пригласить списком</button>}
+        {isAdmin && <button className="btn btn-primary" onClick={() => setModal({ type: 'new' })}><UserPlus size={16} />Пригласить сотрудника</button>}
       </div>
 
       {s && (
@@ -261,7 +327,7 @@ export default function Users() {
                       <td className="small">{u.points}</td>
                     </>}
                     <td className="small muted">{ROLE_LABEL[u.role]}</td>
-                    <td className="small muted nowrap">{fmtRelative(u.lastSeenAt)}</td>
+                    <td className="small muted nowrap">{u.invitePending ? <span className="badge badge-invite" title={`Приглашение отправлено ${fmtRelative(u.invitedAt)}`}><Send size={11} />приглашён</span> : fmtRelative(u.lastSeenAt)}</td>
                   </tr>
                 ))}
               </tbody>

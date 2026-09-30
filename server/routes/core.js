@@ -8,7 +8,8 @@ const { db } = require('../db');
 const config = require('../config');
 const auth = require('../auth');
 const { fail, getSettings, int, str } = require('../util');
-const { mailEnabled } = require('../notify');
+const { mailEnabled, notifyStaff } = require('../notify');
+const invites = require('../invites');
 
 const router = express.Router();
 
@@ -24,6 +25,9 @@ router.post('/auth/login', (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
   if (!user || !auth.checkPassword(password, user.password_hash)) {
     auth.loginFailed(key);
+    if (user && user.invite_token_hash && user.is_active) {
+      fail(401, 'Вы ещё не приняли приглашение. Откройте ссылку из письма «Приглашение на платформу» или попросите администратора отправить её снова.');
+    }
     fail(401, 'Неверный email или пароль');
   }
   if (!user.is_active) fail(403, 'Доступ отключён. Обратитесь к администратору.');
@@ -31,6 +35,33 @@ router.post('/auth/login', (req, res) => {
   auth.createSession(res, user.id);
   db.prepare("UPDATE users SET last_seen_at = datetime('now') WHERE id = ?").run(user.id);
   res.json({ user: auth.publicUser(user) });
+});
+
+/* ---------- Приглашения ---------- */
+router.get('/auth/invite/:token', (req, res) => {
+  const u = invites.findByToken(req.params.token);
+  if (!u || !u.is_active) fail(404, 'Приглашение не найдено: ссылка неверная или уже использована.');
+  if (invites.isExpired(u)) fail(410, 'Срок действия приглашения истёк.');
+  const inviter = u.invited_by ? db.prepare('SELECT name FROM users WHERE id = ?').get(u.invited_by) : null;
+  res.json({ email: u.email, name: invites.realName(u), invitedBy: inviter?.name || null, expiresAt: u.invite_expires_at });
+});
+
+router.post('/auth/invite/:token', (req, res) => {
+  const u = invites.findByToken(req.params.token);
+  if (!u || !u.is_active) fail(404, 'Приглашение не найдено: ссылка неверная или уже использована.');
+  if (invites.isExpired(u)) fail(410, 'Срок действия приглашения истёк. Попросите администратора отправить его снова.');
+  const name = str(req.body?.name, 120) || u.name;
+  const password = String(req.body?.password || '');
+  if (password.length < 6) fail(400, 'Пароль — минимум 6 символов');
+  const firstTime = !u.last_seen_at;
+  db.prepare("UPDATE users SET name = ?, password_hash = ?, invite_token_hash = NULL, invite_expires_at = NULL, last_seen_at = datetime('now') WHERE id = ?")
+    .run(name, auth.hashPassword(password), u.id);
+  db.prepare('DELETE FROM sessions WHERE user_id = ?').run(u.id);
+  auth.createSession(res, u.id);
+  if (firstTime) {
+    notifyStaff({ type: 'invite_accepted', title: `${name} присоединился(-ась) к платформе`, body: u.email, link: `/admin/users/${u.id}` }, { includeCurators: false });
+  }
+  res.json({ user: auth.publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(u.id)) });
 });
 
 router.post('/auth/logout', (req, res) => {

@@ -4,6 +4,7 @@ import { api } from './api';
 import { Spinner, clearApiCache } from './components/ui';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+import Invite from './pages/Invite';
 import Library from './pages/student/Library';
 import CoursePage from './pages/student/CoursePage';
 import LessonPage from './pages/student/LessonPage';
@@ -98,6 +99,7 @@ export default function App() {
     return (
       <AuthCtx.Provider value={ctx}>
         <Routes>
+          <Route path="/invite/:token" element={<Invite />} />
           <Route path="*" element={<Login />} />
         </Routes>
       </AuthCtx.Provider>
@@ -138,6 +140,7 @@ export default function App() {
   return (
     <AuthCtx.Provider value={ctx}>
       <Routes>
+        <Route path="/invite/:token" element={<Invite />} />
         {/* Режим прохождения урока — на весь экран, без меню платформы */}
         <Route path="/course/:courseId/lesson/:lessonId" element={<ErrorBoundary resetKey={location.pathname}><LessonPage /></ErrorBoundary>} />
         <Route path="*" element={mainUI} />

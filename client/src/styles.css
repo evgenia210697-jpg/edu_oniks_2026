@@ -1271,3 +1271,23 @@ button, a, [role="button"], .tab, .menu-item, summary { touch-action: manipulati
 /* Кнопка с индикатором ожидания: видно, что нажатие принято */
 .btn-spin { width: 15px; height: 15px; border-width: 2px; border-color: rgba(255, 255, 255, .35); border-top-color: #fff; }
 .btn[aria-busy="true"] { cursor: progress; }
+
+/* =================== Приглашение на платформу =================== */
+.invite-state { width: 100%; max-width: 400px; text-align: center; }
+.invite-state h2, .login-form h2 { margin-top: 12px; }
+.invite-ic { width: 52px; height: 52px; border-radius: 14px; display: inline-grid; place-items: center; background: var(--accent-50); color: var(--accent); }
+.invite-ic.ok { background: var(--success-50); color: var(--success); }
+.invite-ic.bad { background: var(--danger-50); color: var(--danger); }
+.login-form .invite-ic { margin-bottom: 2px; }
+.input[readonly] { background: var(--surface-2); color: var(--muted); }
+.pw-meter { display: flex; align-items: center; gap: 4px; margin-top: 8px; }
+.pw-meter span { flex: 1; height: 4px; border-radius: 2px; background: var(--border); transition: background-color .25s var(--ease); }
+.pw-meter em { font-style: normal; font-size: 12px; color: var(--muted); margin-left: 8px; white-space: nowrap; min-width: 120px; }
+.pw-meter.l1 span:nth-child(1) { background: var(--danger); }
+.pw-meter.l2 span:nth-child(-n+2) { background: var(--warning); }
+.pw-meter.l3 span { background: var(--success); }
+.invite-box { display: grid; gap: 12px; }
+.invite-link { display: flex; gap: 8px; align-items: center; padding: 8px 8px 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.invite-link code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--text-2); }
+.badge-invite { background: var(--info-50); color: var(--info); }
+.invite-pending { align-items: center; flex-wrap: wrap; }

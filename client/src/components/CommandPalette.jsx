@@ -25,7 +25,7 @@ function quickActions(role) {
   }
   if (role === 'admin') {
     list.push(
-      { key: 'a-new-user', title: 'Добавить сотрудника', sub: 'Выдать доступ к платформе', icon: UserPlus, link: '/admin/users?new=1' },
+      { key: 'a-new-user', title: 'Пригласить сотрудника', sub: 'Письмо со ссылкой на e-mail', icon: UserPlus, link: '/admin/users?new=1' },
       { key: 'a-settings', title: 'Настройки', sub: 'Название, логотип, фирменный цвет', icon: Settings, link: '/admin/settings' },
     );
   }

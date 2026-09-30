@@ -171,6 +171,13 @@ CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, is_read);
 CREATE INDEX IF NOT EXISTS idx_sub_status ON submissions(status);
 `);
 
+// Миграции: новые колонки добавляются в существующую базу без потери данных
+const userCols = new Set(db.prepare('PRAGMA table_info(users)').all().map((c) => c.name));
+for (const [col, type] of [['invite_token_hash', 'TEXT'], ['invite_expires_at', 'TEXT'], ['invited_at', 'TEXT'], ['invited_by', 'INTEGER']]) {
+  if (!userCols.has(col)) db.exec(`ALTER TABLE users ADD COLUMN ${col} ${type}`);
+}
+db.exec('CREATE INDEX IF NOT EXISTS idx_users_invite ON users(invite_token_hash)');
+
 function json(value, fallback) {
   if (value == null || value === '') return fallback;
   try { return JSON.parse(value); } catch { return fallback; }

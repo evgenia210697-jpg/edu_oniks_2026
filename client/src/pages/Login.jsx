@@ -74,7 +74,7 @@ export default function Login() {
           </div>
           {error && <div className="alert alert-danger mb-16">{error}</div>}
           <button className="btn btn-primary btn-lg btn-block" disabled={busy}>{busy ? 'Входим…' : 'Войти'}</button>
-          <p className="hint mt-16" style={{ textAlign: 'center' }}>Забыли пароль? Обратитесь к администратору — он выдаст новый.</p>
+          <p className="hint mt-16" style={{ textAlign: 'center' }}>Забыли пароль или ещё нет доступа? Попросите администратора прислать приглашение на почту.</p>
         </form>
       </div>
     </div>
