@@ -4,10 +4,10 @@ const fs = require('fs');
 const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
-const { db } = require('../db');
+const { db, tx, json, snapshot } = require('../db');
 const config = require('../config');
 const auth = require('../auth');
-const { fail, getSettings, int, str } = require('../util');
+const { fail, getSettings, learningDefaults, int, str } = require('../util');
 const { mailEnabled, notifyStaff } = require('../notify');
 const invites = require('../invites');
 
@@ -28,7 +28,7 @@ router.post('/auth/login', (req, res) => {
     if (user && user.invite_token_hash && user.is_active) {
       fail(401, 'Вы ещё не приняли приглашение. Откройте ссылку из письма «Приглашение на платформу» или попросите администратора отправить её снова.');
     }
-    fail(401, 'Неверный email или пароль');
+    fail(401, 'Неверный логин или пароль');
   }
   if (!user.is_active) fail(403, 'Доступ отключён. Обратитесь к администратору.');
   auth.loginOk(key);
@@ -223,8 +223,41 @@ router.get('/search', auth.requireAuth, (req, res) => {
 });
 
 /* ---------- Настройки платформы ---------- */
+/** Сколько тестов и курсов отличаются от правил обучения по умолчанию */
+function learningStats() {
+  const d = learningDefaults();
+  const tests = db.prepare("SELECT settings FROM lessons WHERE type = 'test'").all().map((l) => json(l.settings, {}));
+  const courses = db.prepare('SELECT sequential FROM courses').all();
+  return {
+    tests: tests.length,
+    testsDiffer: tests.filter((t) => (t.passPercent ?? 60) !== d.passPercent || (Number(t.attemptsLimit) || 0) !== d.attemptsLimit).length,
+    courses: courses.length,
+    coursesDiffer: courses.filter((c) => !!c.sequential !== d.sequential).length,
+  };
+}
+
 router.get('/admin/settings', auth.requireRole('admin'), (_req, res) => {
-  res.json({ ...getSettings(), mailEnabled: mailEnabled(), maxUploadMb: config.MAX_UPLOAD_MB });
+  res.json({ ...getSettings(), mailEnabled: mailEnabled(), maxUploadMb: config.MAX_UPLOAD_MB, learningStats: learningStats() });
+});
+
+// Применить правила обучения ко всем уже созданным тестам и курсам (перед этим — копия базы)
+router.post('/admin/settings/apply-learning', auth.requireRole('admin'), (req, res) => {
+  const d = learningDefaults();
+  const b = req.body || {};
+  const backup = snapshot('before-apply-learning');
+  let tests = 0; let courses = 0;
+  tx(() => {
+    if (b.tests !== false) {
+      for (const l of db.prepare("SELECT id, settings FROM lessons WHERE type = 'test'").all()) {
+        const st = json(l.settings, {});
+        if ((st.passPercent ?? 60) === d.passPercent && (Number(st.attemptsLimit) || 0) === d.attemptsLimit) continue;
+        db.prepare('UPDATE lessons SET settings = ? WHERE id = ?').run(JSON.stringify({ ...st, passPercent: d.passPercent, attemptsLimit: d.attemptsLimit }), l.id);
+        tests++;
+      }
+    }
+    if (b.courses !== false) courses = db.prepare('UPDATE courses SET sequential = ? WHERE sequential <> ?').run(d.sequential ? 1 : 0, d.sequential ? 1 : 0).changes;
+  });
+  res.json({ tests, courses, backup: !!backup, learningStats: learningStats() });
 });
 
 router.put('/admin/settings', auth.requireRole('admin'), (req, res) => {
@@ -238,9 +271,12 @@ router.put('/admin/settings', auth.requireRole('admin'), (req, res) => {
     loginText: ['login_text', (v) => str(v, 300)],
     libraryTitle: ['library_title', (v) => str(v, 100)],
     librarySubtitle: ['library_subtitle', (v) => str(v, 200)],
+    learnPassPercent: ['learn_pass_percent', (v) => String(Math.min(100, Math.max(0, int(v) ?? 85)))],
+    learnAttemptsLimit: ['learn_attempts_limit', (v) => String(Math.min(100, Math.max(0, int(v) || 0)))],
+    learnSequential: ['learn_sequential', (v) => (v ? '1' : '0')],
   };
   for (const [k, [key, fn]] of Object.entries(map)) if (k in b) set.run(key, fn(b[k]));
-  res.json(getSettings());
+  res.json({ ...getSettings(), mailEnabled: mailEnabled(), maxUploadMb: config.MAX_UPLOAD_MB, learningStats: learningStats() });
 });
 
 module.exports = router;

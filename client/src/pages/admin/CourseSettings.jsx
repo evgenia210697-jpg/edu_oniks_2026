@@ -58,7 +58,7 @@ export default function CourseSettings({ course, onSaved }) {
         </Field>
         <div className="mb-16">
           <Toggle checked={f.sequential} onChange={(v) => setF({ ...f, sequential: v })} label="Последовательное прохождение"
-            hint="Следующее занятие открывается только после выполнения предыдущего (задание — после отправки ответа, тест — после сдачи)" />
+            hint="Следующее занятие открывается только после выполнения предыдущего (задание — после отправки ответа, тест — после сдачи). Кто прошёл курс целиком, может открывать занятия в любом порядке" />
         </div>
         <button className="btn btn-primary" disabled={busy}>Сохранить</button>
       </form>

@@ -66,7 +66,7 @@ function publicTestInfo(l, settings, content, userId) {
   const attempts = db.prepare('SELECT * FROM test_attempts WHERE user_id = ? AND lesson_id = ? ORDER BY id').all(userId, l.id);
   const finished = attempts.filter((a) => a.finished_at);
   const active = attempts.find((a) => !a.finished_at);
-  const limit = settings.attemptsLimit || 0;
+  const limit = logic.attemptsLimitFor(userId, l.id, settings);
   let activeData = null;
   if (active) {
     if (active.deadline_at && new Date(active.deadline_at).getTime() + 30000 < Date.now()) {
@@ -143,6 +143,16 @@ function finishAttempt(a, answers, l, settings, content, userId) {
   db.prepare("UPDATE test_attempts SET finished_at = datetime('now'), answers = ?, result = ?, score = ?, passed = ? WHERE id = ?")
     .run(JSON.stringify(answers), JSON.stringify(details), score, passed ? 1 : 0, a.id);
   if (passed) logic.completeLesson(userId, l, settings.points || 0);
+  else {
+    // последняя попытка не удалась — сообщаем кураторам, чтобы ученик не «застрял» на тесте
+    const limit = logic.attemptsLimitFor(userId, l.id, settings);
+    const done = db.prepare('SELECT COUNT(*) AS n FROM test_attempts WHERE user_id = ? AND lesson_id = ? AND finished_at IS NOT NULL').get(userId, l.id).n;
+    const everPassed = db.prepare('SELECT 1 FROM test_attempts WHERE user_id = ? AND lesson_id = ? AND passed = 1').get(userId, l.id);
+    if (limit && done >= limit && !everPassed) {
+      const u = db.prepare('SELECT name FROM users WHERE id = ?').get(userId);
+      notifyStaff({ type: 'attempts_over', title: `${u.name}: закончились попытки теста`, body: `«${l.title}» — лучший результат ниже проходного. Можно открыть дополнительную попытку в карточке сотрудника.`, link: `/admin/users/${userId}` });
+    }
+  }
   return db.prepare('SELECT * FROM test_attempts WHERE id = ?').get(a.id);
 }
 
@@ -176,7 +186,8 @@ router.post('/lessons/:id/attempts', (req, res) => {
   const active = db.prepare('SELECT * FROM test_attempts WHERE user_id = ? AND lesson_id = ? AND finished_at IS NULL').get(req.user.id, l.id);
   if (active) return res.json({ id: active.id, questions: json(active.plan, []), deadlineAt: active.deadline_at });
   const done = db.prepare('SELECT COUNT(*) AS n FROM test_attempts WHERE user_id = ? AND lesson_id = ? AND finished_at IS NOT NULL').get(req.user.id, l.id).n;
-  if (settings.attemptsLimit && done >= settings.attemptsLimit) fail(400, 'Попытки закончились. Обратитесь к куратору.');
+  const limit = logic.attemptsLimitFor(req.user.id, l.id, settings);
+  if (limit && done >= limit) fail(400, 'Попытки закончились. Обратитесь к куратору — он может открыть дополнительную попытку.');
   const plan = makePlan();
   const deadline = settings.timeLimitMin ? new Date(Date.now() + settings.timeLimitMin * 60000).toISOString() : null;
   const id = db.prepare('INSERT INTO test_attempts (user_id, lesson_id, plan, deadline_at) VALUES (?, ?, ?, ?)')

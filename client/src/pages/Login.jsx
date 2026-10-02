@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { GraduationCap, Mail, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { GraduationCap, UserRound, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { api } from '../api';
 import { useAuth, applyTheme } from '../App';
 
@@ -54,12 +54,12 @@ export default function Login() {
       <div className="login-form-wrap">
         <form className="login-form" onSubmit={submit}>
           <h2>Вход</h2>
-          <p className="muted mb-16">Введите email и пароль, которые вам выдали</p>
+          <p className="muted mb-16">Введите логин (или e-mail) и пароль, которые вам выдали</p>
           <div className="field">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">Логин или e-mail</label>
             <div className="input-group">
-              <Mail size={17} />
-              <input id="email" className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus placeholder="name@company.ru" />
+              <UserRound size={17} />
+              <input id="email" className="input" type="text" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus placeholder="ivanov.ivan или name@company.ru" />
             </div>
           </div>
           <div className="field">
@@ -74,7 +74,7 @@ export default function Login() {
           </div>
           {error && <div className="alert alert-danger mb-16">{error}</div>}
           <button className="btn btn-primary btn-lg btn-block" disabled={busy}>{busy ? 'Входим…' : 'Войти'}</button>
-          <p className="hint mt-16" style={{ textAlign: 'center' }}>Забыли пароль или ещё нет доступа? Попросите администратора прислать приглашение на почту.</p>
+          <p className="hint mt-16" style={{ textAlign: 'center' }}>Забыли пароль или ещё нет доступа? Обратитесь к администратору платформы.</p>
         </form>
       </div>
     </div>

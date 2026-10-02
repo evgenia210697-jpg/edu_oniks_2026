@@ -8,7 +8,7 @@ import { plural, fmtDate } from '../../utils';
 export function LessonMeta({ l }) {
   return (
     <span className="row small muted" style={{ gap: 10 }}>
-      {l.type === 'test' && l.attempts > 0 && <span className="nowrap">{l.attempts} {plural(l.attempts, 'попытка', 'попытки', 'попыток')} · {l.bestScore}%</span>}
+      {l.type === 'test' && l.attempts > 0 && <span className="nowrap">{l.attemptsLimit ? `Попытки: ${l.attempts} из ${l.attemptsLimit}` : `${l.attempts} ${plural(l.attempts, 'попытка', 'попытки', 'попыток')}`} · {l.bestScore}%</span>}
       {l.status === 'pending' && <span className="badge badge-warning"><Clock size={12} />На проверке</span>}
       {l.status === 'returned' && <span className="badge badge-danger">На доработке</span>}
       {l.deadline && l.status !== 'completed' && <span className="nowrap">до {fmtDate(l.deadline)}</span>}

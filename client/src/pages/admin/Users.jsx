@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { UserPlus, Download, Search, Users as UsersIcon, Activity, TrendingUp, Clock, Award, FileSpreadsheet, BookPlus, Copy, CheckCircle2, Send, KeyRound, MailWarning, ExternalLink } from 'lucide-react';
+import { UserPlus, Download, Search, Users as UsersIcon, Activity, TrendingUp, Clock, Award, FileSpreadsheet, BookPlus, Copy, CheckCircle2, Send, KeyRound, MailWarning, ExternalLink, Wand2 } from 'lucide-react';
 import { api } from '../../api';
 import { useAuth } from '../../App';
 import { useApi, Loading, ErrorBox, Avatar, Progress, Modal, Field, useToast, Empty, CountUp, Toggle } from '../../components/ui';
@@ -40,6 +40,9 @@ export function InviteBox({ list }) {
       {demo ? (
         <div className="alert alert-info"><Send size={18} /><div><b>Демо-версия:</b> письма здесь не отправляются. На рабочем сервере сотрудник получит письмо с кнопкой «Принять приглашение».
           <div className="small muted mt-8">Чтобы увидеть, что увидит сотрудник, нажмите «Открыть как сотрудник», затем «Выйти и принять приглашение».</div></div></div>
+      ) : list.every((x) => x.invite?.noEmail) ? (
+        <div className="alert alert-info"><Send size={18} /><div>У {list.length === 1 ? 'сотрудника' : 'сотрудников'} не указан e-mail — письмо отправлять некуда. Скопируйте {list.length === 1 ? 'ссылку' : 'ссылки'} и передайте сами (в мессенджере, лично).
+          <div className="small muted mt-8">Резервный e-mail можно добавить в карточке сотрудника → «Изменить».</div></div></div>
       ) : sent === list.length ? (
         <div className="alert alert-success"><CheckCircle2 size={18} /><div>{list.length === 1
           ? <>Приглашение отправлено на <b>{list[0].email}</b>. Сотрудник откроет ссылку из письма, задаст пароль и сразу попадёт на платформу.</>
@@ -86,19 +89,42 @@ export function UserFormModal({ user, onClose, onSaved, departments = [] }) {
   const toast = useToast();
   const isNew = !user;
   const { data: courses } = useApi(isNew ? '/admin/courses' : null);
-  const [f, setF] = useState(user ? { ...user, password: '' } : { name: '', email: '', role: 'student', department: '', position: '', phone: '', comment: '', password: '', courseIds: [] });
+  const [f, setF] = useState(user
+    ? { ...user, login: user.login || user.email, contactEmail: user.contactEmail || '', password: '' }
+    : { name: '', email: '', login: '', contactEmail: '', role: 'student', department: '', position: '', phone: '', comment: '', password: '', courseIds: [] });
   const [autoPw, setAutoPw] = useState(true);
   const [mode, setMode] = useState('invite'); // invite — письмо со ссылкой; password — пароль задаёт администратор
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState(null);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const [genBusy, setGenBusy] = useState(false);
+  // логин по ФИО: «Иванов Иван» → ivanov.ivan (с цифрой, если такой уже есть)
+  // force — по кнопке (заменяет логин); без него — автоподстановка, только если поле ещё пустое
+  const genLogin = async (name = f.name, force = true) => {
+    setGenBusy(true);
+    try { const r = await api.get(`/admin/users/suggest-login?name=${encodeURIComponent(name || '')}`); setF((x) => (force || !x.login ? { ...x, login: r.login } : x)); }
+    catch (err) { toast.error(err); } finally { setGenBusy(false); }
+  };
+  const loginField = (
+    <Field label="Логин" hint={isNew ? 'Латиница, цифры, точка — или e-mail. По нему сотрудник входит на платформу' : 'По нему сотрудник входит на платформу'}>
+      <div className="row" style={{ gap: 8 }}>
+        <input className="input" value={f.login} onChange={(e) => setF({ ...f, login: e.target.value.trim().toLowerCase() })} required placeholder="ivanov.ivan" autoComplete="off" spellCheck={false} />
+        {isNew && <button type="button" className="btn btn-secondary nowrap" onClick={() => genLogin()} disabled={genBusy}><Wand2 size={15} />Сгенерировать</button>}
+      </div>
+    </Field>
+  );
+  const contactField = (
+    <Field label="E-mail (резервный, необязательно)" hint="Для уведомлений и восстановления доступа. Можно указать один e-mail для нескольких сотрудников">
+      <input className="input" type="email" value={f.contactEmail} onChange={set('contactEmail')} placeholder="sklad@company.ru" />
+    </Field>
+  );
 
   const submit = async (e) => {
     e.preventDefault(); setBusy(true);
     try {
       if (isNew) {
         const invite = mode === 'invite';
-        const r = await api.post('/admin/users', { ...f, invite, origin: window.location.origin, password: !invite && !autoPw ? f.password : '' });
+        const r = await api.post('/admin/users', { ...f, invite, origin: window.location.origin, password: !invite && !autoPw ? f.password : '', login: invite ? undefined : f.login, contactEmail: invite ? '' : f.contactEmail });
         setCreated({ name: r.name, email: r.email, password: r.password, invite: r.invite });
         onSaved?.(r);
       } else {
@@ -134,10 +160,12 @@ export function UserFormModal({ user, onClose, onSaved, departments = [] }) {
           </Field>
         )}
         <div className="grid-2">
-          <Field label="Email (будет логином)"><input className="input" type="email" value={f.email} onChange={set('email')} required autoFocus={isNew} placeholder="ivanov@company.ru" /></Field>
+          {isNew && mode === 'invite' && <Field label="Email (будет логином)"><input className="input" type="email" value={f.email} onChange={set('email')} required autoFocus placeholder="ivanov@company.ru" /></Field>}
           <Field label={isNew && mode === 'invite' ? 'ФИО (необязательно)' : 'ФИО'} hint={isNew && mode === 'invite' ? 'Если не знаете — сотрудник впишет сам' : undefined}>
-            <input className="input" value={f.name} onChange={set('name')} required={!isNew || mode !== 'invite'} autoFocus={!isNew} placeholder="Иванов Иван" />
+            <input className="input" value={f.name} onChange={set('name')} required={!isNew || mode !== 'invite'} autoFocus={!isNew || mode === 'password'} placeholder="Иванов Иван"
+              onBlur={() => { if (isNew && mode === 'password' && !f.login && f.name.trim()) genLogin(f.name, false); }} />
           </Field>
+          {(!isNew || mode === 'password') && <>{loginField}{contactField}</>}
           <Field label="Отдел">
             <input className="input" value={f.department} onChange={set('department')} list="departments" placeholder="Отдел продаж" />
             <datalist id="departments">{departments.map((d) => <option key={d} value={d} />)}</datalist>
@@ -181,7 +209,7 @@ function ImportModal({ onClose, onDone }) {
     const email = emailIdx >= 0 ? p[emailIdx] : '';
     const rest = p.filter((_, i) => i !== emailIdx);
     return { name: rest[0] || '', email, department: rest[1] || '', position: rest[2] || '' };
-  }).filter((r) => !/^фио$/i.test(r.name) && r.email), [text]);
+  }).filter((r) => !/^фио$/i.test(r.name) && (invite ? r.email : r.name)), [text, invite]);
 
   const run = async () => {
     setBusy(true);
@@ -201,17 +229,19 @@ function ImportModal({ onClose, onDone }) {
       <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
       <button className="btn btn-primary" disabled={!rows.length || busy} onClick={run}>{invite ? <><Send size={16} />Пригласить {rows.length || ''}</> : `Добавить ${rows.length || ''}`}</button>
     </>}>
-      <p className="muted small mb-16">Скопируйте столбцы из Excel и вставьте ниже. Порядок: <b>ФИО, Email, Отдел, Должность</b> — по одному сотруднику в строке. Для приглашений достаточно одних e-mail — имя сотрудник впишет сам.</p>
+      <p className="muted small mb-16">Скопируйте столбцы из Excel и вставьте ниже. Порядок: <b>ФИО, Email, Отдел, Должность</b> — по одному сотруднику в строке. {invite
+        ? 'Для приглашений достаточно одних e-mail — имя сотрудник впишет сам.'
+        : 'Логины и пароли сгенерируются по ФИО. E-mail необязателен — он станет резервным (может повторяться).'}</p>
       <textarea className="textarea" style={{ minHeight: 150, fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13 }} value={text} onChange={(e) => setText(e.target.value)}
         placeholder={'Иванов Иван\tivanov@company.ru\tОтдел продаж\tМенеджер\nПетрова Анна\tpetrova@company.ru\tСклад\tКладовщик'} />
       {rows.length > 0 && (
         <div className="card table-wrap mt-16" style={{ maxHeight: 220, overflowY: 'auto' }}>
-          <table className="table"><thead><tr><th>ФИО</th><th>Email</th><th>Отдел</th><th>Должность</th></tr></thead>
-            <tbody>{rows.map((r, i) => <tr key={i}><td>{r.name || <span style={{ color: 'var(--danger)' }}>нет имени</span>}</td><td>{r.email || <span style={{ color: 'var(--danger)' }}>нет email</span>}</td><td>{r.department}</td><td>{r.position}</td></tr>)}</tbody>
+          <table className="table"><thead><tr><th>ФИО</th><th>{invite ? 'Email' : 'E-mail (резервный)'}</th><th>Отдел</th><th>Должность</th></tr></thead>
+            <tbody>{rows.map((r, i) => <tr key={i}><td>{r.name || <span style={{ color: 'var(--danger)' }}>нет имени</span>}</td><td>{r.email || (invite ? <span style={{ color: 'var(--danger)' }}>нет email</span> : <span className="muted">—</span>)}</td><td>{r.department}</td><td>{r.position}</td></tr>)}</tbody>
           </table>
         </div>
       )}
-      <div className="mt-16"><Toggle checked={invite} onChange={setInvite} label="Отправить приглашения на e-mail" hint={invite ? 'Каждый получит письмо со своей ссылкой и сам задаст пароль' : 'Пароли сгенерируются автоматически — их нужно будет передать сотрудникам'} /></div>
+      <div className="mt-16"><Toggle checked={invite} onChange={setInvite} label="Отправить приглашения на e-mail" hint={invite ? 'Каждый получит письмо со своей ссылкой и сам задаст пароль' : 'Логины и пароли сгенерируются автоматически — их нужно будет передать сотрудникам'} /></div>
       <Field label="Открыть курсы всем добавленным" style={{ marginTop: 16 }}><CourseChecklist courses={courses} value={courseIds} onChange={setCourseIds} /></Field>
     </Modal>
   );

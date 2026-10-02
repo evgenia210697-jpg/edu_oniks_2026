@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { ImagePlus, X, Mail, CheckCircle2, AlertTriangle, HardDrive, Palette, Check } from 'lucide-react';
+import { ImagePlus, X, Mail, CheckCircle2, AlertTriangle, HardDrive, Palette, Check, ListChecks, ListOrdered, RefreshCw } from 'lucide-react';
 import { api } from '../../api';
 import { useAuth, setAccent } from '../../App';
-import { useApi, Loading, ErrorBox, Field, useToast, Menu } from '../../components/ui';
+import { useApi, Loading, ErrorBox, Field, useToast, useConfirm, Menu, Toggle } from '../../components/ui';
+import { plural } from '../../utils';
 import ColorPicker from '../../components/ColorPicker';
 import { Dropzone, useUploader, UploadProgressList } from '../../components/Files';
 
@@ -30,6 +31,68 @@ function ImageField({ label, hint, url, onChange, wide }) {
         <Dropzone accept="image/*" icon={ImagePlus} compact title="Загрузить изображение" onFiles={async ([f]) => { const r = await upload(f); if (r) onChange(r); }} />
       )}
     </Field>
+  );
+}
+
+/** Правила обучения: проходной балл, попытки, порядок занятий */
+function LearningSettings({ data, onSaved }) {
+  const toast = useToast();
+  const confirm = useConfirm();
+  const saved = data.learning;
+  const [f, setF] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const v = f || saved;
+  const set = (patch) => setF({ ...v, ...patch });
+  const st = data.learningStats || {};
+  const save = async () => {
+    setBusy(true);
+    try {
+      await api.put('/admin/settings', { learnPassPercent: v.passPercent, learnAttemptsLimit: v.attemptsLimit, learnSequential: v.sequential });
+      setF(null); onSaved(); toast('Правила обучения сохранены');
+    } catch (e) { toast.error(e); } finally { setBusy(false); }
+  };
+  const apply = async () => {
+    const parts = [];
+    if (st.testsDiffer) parts.push(`${st.testsDiffer} ${plural(st.testsDiffer, 'тесту', 'тестам', 'тестам')} — проходной балл ${saved.passPercent}% и ${saved.attemptsLimit ? `${saved.attemptsLimit} ${plural(saved.attemptsLimit, 'попытка', 'попытки', 'попыток')}` : 'попытки без ограничений'}`);
+    if (st.coursesDiffer) parts.push(`${st.coursesDiffer} ${plural(st.coursesDiffer, 'курсу', 'курсам', 'курсам')} — ${saved.sequential ? 'прохождение по порядку' : 'свободный порядок занятий'}`);
+    if (!(await confirm({ title: 'Применить ко всем?', text: `Будет задано: ${parts.join('; ')}. Содержимое уроков, вопросы и результаты учеников не меняются. Перед изменением сохраняется копия базы.`, ok: 'Применить' }))) return;
+    setBusy(true);
+    try {
+      const r = await api.post('/admin/settings/apply-learning', {});
+      toast(`Готово: обновлено тестов — ${r.tests}, курсов — ${r.courses}`); onSaved();
+    } catch (e) { toast.error(e); } finally { setBusy(false); }
+  };
+  const differ = (st.testsDiffer || 0) + (st.coursesDiffer || 0);
+  return (
+    <div className="card card-pad mt-16">
+      <h3 className="mb-8">Обучение и тесты</h3>
+      <p className="small muted mb-16">Правила для новых тестов и курсов. У отдельного теста или курса их можно поменять в его настройках.</p>
+      <div className="grid-2">
+        <Field label="Проходной балл теста" hint="Сколько процентов правильных ответов нужно, чтобы тест засчитался">
+          <div className="row"><input className="input" type="number" min={0} max={100} style={{ width: 110 }} value={v.passPercent}
+            onChange={(e) => set({ passPercent: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) })} /><span className="muted">%</span></div>
+        </Field>
+        <Field label="Количество попыток" hint="Когда попытки закончатся, куратор получит уведомление и сможет открыть ещё одну">
+          <div className="row"><input className="input" type="number" min={0} max={100} style={{ width: 110 }} value={v.attemptsLimit}
+            onChange={(e) => set({ attemptsLimit: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) })} />
+            <span className="muted small">{v.attemptsLimit ? plural(v.attemptsLimit, 'попытка', 'попытки', 'попыток') : '0 — без ограничений'}</span></div>
+        </Field>
+      </div>
+      <Toggle checked={v.sequential} onChange={(x) => set({ sequential: x })} label="Проходить занятия строго по порядку"
+        hint="Следующий урок открывается только после предыдущего, тест — только после успешной сдачи. Когда ученик пройдёт курс целиком, все занятия становятся доступны в любом порядке" />
+      <div className="row mt-16"><button type="button" className="btn btn-primary" disabled={busy || !f} onClick={save}>Сохранить правила</button>{f && <button type="button" className="btn btn-ghost" onClick={() => setF(null)}>Отменить</button>}</div>
+      <div className={`alert ${differ ? 'alert-info' : 'alert-success'} mt-16 learn-apply`}>
+        {differ ? <RefreshCw size={18} /> : <CheckCircle2 size={18} />}
+        <div className="flex-1">
+          <div className="row row-wrap small" style={{ gap: 14 }}>
+            <span className="row" style={{ gap: 5 }}><ListChecks size={15} />Тестов: <b>{st.tests || 0}</b>{st.testsDiffer ? <span className="muted">(с другими правилами: {st.testsDiffer})</span> : null}</span>
+            <span className="row" style={{ gap: 5 }}><ListOrdered size={15} />Курсов: <b>{st.courses || 0}</b>{st.coursesDiffer ? <span className="muted">(с другим порядком: {st.coursesDiffer})</span> : null}</span>
+          </div>
+          <div className="small mt-8">{differ ? 'Уже созданные тесты и курсы сохранили прежние правила. Их можно привести к правилам выше одной кнопкой.' : 'Все тесты и курсы работают по этим правилам.'}</div>
+        </div>
+        {differ > 0 && <button type="button" className="btn btn-secondary btn-sm nowrap" disabled={busy || !!f} title={f ? 'Сначала сохраните правила' : undefined} onClick={apply}>Применить ко всем</button>}
+      </div>
+    </div>
   );
 }
 
@@ -62,7 +125,7 @@ export default function Settings() {
 
   return (
     <div style={{ maxWidth: 860 }}>
-      <div className="page-head"><div className="flex-1"><h1>Настройки платформы</h1><div className="page-sub">Название, логотип и фирменный цвет. Сотрудники и их роли — в разделе «Сотрудники».</div></div></div>
+      <div className="page-head"><div className="flex-1"><h1>Настройки платформы</h1><div className="page-sub">Оформление, правила обучения и тестов. Сотрудники и их роли — в разделе «Сотрудники».</div></div></div>
       <form onSubmit={save}>
         <div className="card card-pad">
           <h3 className="mb-16">Оформление</h3>
@@ -106,7 +169,9 @@ export default function Settings() {
         <div className="row mt-16"><button className="btn btn-primary btn-lg" disabled={busy || !f}>Сохранить настройки</button>{f && <button type="button" className="btn btn-ghost" onClick={() => { setF(null); setAccent(data.accentColor); }}>Отменить</button>}</div>
       </form>
 
-      <div className="card card-pad mt-24">
+      <LearningSettings key={JSON.stringify(data.learning)} data={data} onSaved={reload} />
+
+      <div className="card card-pad mt-16">
         <h3 className="mb-16">Почта и файлы</h3>
         {data.mailEnabled
           ? <div className="alert alert-success"><CheckCircle2 size={18} /><div><b>Email-уведомления включены.</b> Сотрудники получают письма о проверке заданий и новых курсах (если не отключили в профиле).</div></div>

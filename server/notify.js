@@ -1,6 +1,7 @@
 // Уведомления: внутри платформы + email (если настроен SMTP в .env)
 const { db } = require('./db');
 const config = require('./config');
+const { mailOf } = require('./util');
 
 let transporter = null;
 if (config.SMTP.host) {
@@ -91,8 +92,8 @@ function notify(userId, { type, title, body = '', link = '' }, { email = true } 
   if (!userId) return;
   db.prepare('INSERT INTO notifications (user_id, type, title, body, link) VALUES (?, ?, ?, ?, ?)')
     .run(userId, type, title, body, link);
-  const u = db.prepare('SELECT email, email_notify, is_active, invite_token_hash FROM users WHERE id = ?').get(userId);
-  if (email && u && u.is_active && u.email_notify && !u.invite_token_hash) sendMail(u.email, title, body, link);
+  const u = db.prepare('SELECT email, contact_email, email_notify, is_active, invite_token_hash FROM users WHERE id = ?').get(userId);
+  if (email && u && u.is_active && u.email_notify && !u.invite_token_hash && mailOf(u)) sendMail(mailOf(u), title, body, link);
 }
 
 /** Всем администраторам (и кураторам, если staff=true) */

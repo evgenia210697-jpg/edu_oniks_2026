@@ -7,6 +7,14 @@ const TYPE_LABEL = { lecture: 'Урок', assignment: 'Задание', test: '�
 
 function lessonSettings(l) { return json(l.settings, {}); }
 
+/** Сколько попыток теста доступно ученику: лимит теста + выданные куратором сверх него (0 — без ограничений) */
+function attemptsLimitFor(userId, lessonId, settings) {
+  const base = Number(settings.attemptsLimit) || 0;
+  if (!base) return 0;
+  const g = db.prepare('SELECT extra FROM test_attempt_grants WHERE user_id = ? AND lesson_id = ?').get(userId, lessonId);
+  return base + (g ? Number(g.extra) || 0 : 0);
+}
+
 /** Модули и уроки курса (для ученика — только опубликованные) */
 function courseOutline(courseId, { publishedOnly = false } = {}) {
   const modules = db.prepare('SELECT * FROM modules WHERE course_id = ? ORDER BY sort, id').all(courseId);
@@ -46,6 +54,8 @@ function courseState(userId, courseId) {
   }
   const enrollment = db.prepare('SELECT * FROM enrollments WHERE user_id = ? AND course_id = ?').get(userId, courseId);
   let blocked = false;
+  // курс пройден целиком — дальше можно открывать любые занятия в любом порядке
+  const freeOrder = !course.sequential || !!enrollment?.completed_at;
   let completedCount = 0;
   let points = 0;
   const statusMap = new Map();
@@ -58,7 +68,7 @@ function courseState(userId, courseId) {
     else if (l.type === 'assignment' && s) status = s.status === 'returned' ? 'returned' : 'pending';
     else if (l.type === 'test' && t) status = 'failed';
     else if (p) status = 'opened';
-    const locked = !!course.sequential && blocked;
+    const locked = !freeOrder && blocked;
     const done = status === 'completed' || status === 'pending' || status === 'returned';
     if (!done) blocked = true;
     if (status === 'completed') completedCount++;
@@ -70,7 +80,8 @@ function courseState(userId, courseId) {
     if (l.type === 'test') {
       info.attempts = t ? t.n : 0;
       info.bestScore = t ? Math.round((t.best || 0) * 100) : null;
-      info.attemptsLimit = l.settings.attemptsLimit || 0;
+      info.attemptsLimit = attemptsLimitFor(userId, l.id, l.settings);
+      info.outOfAttempts = status !== 'completed' && info.attemptsLimit > 0 && info.attempts >= info.attemptsLimit;
     }
     if (l.type === 'assignment' && s) info.submissionId = s.id;
     if (l.type === 'assignment' && l.settings.deadlineDays && enrollment) {
@@ -253,5 +264,5 @@ function correctAnswerView(q) {
 
 module.exports = {
   TYPE_LABEL, courseOutline, flatLessons, courseState, checkCourseCompletion, touchLesson, completeLesson,
-  shuffle, presentQuestion, gradeQuestion, correctAnswerView, parseGaps, lessonSettings,
+  shuffle, presentQuestion, gradeQuestion, correctAnswerView, parseGaps, lessonSettings, attemptsLimitFor,
 };

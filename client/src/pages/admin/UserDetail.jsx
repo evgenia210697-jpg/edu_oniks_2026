@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, Pencil, KeyRound, Power, Trash2, BookPlus, ChevronDown, ChevronUp, Mail, Phone, Building2, RotateCcw, CheckCircle2, X, MoreHorizontal, ListChecks, Send, Link2 } from 'lucide-react';
+import { ChevronLeft, Pencil, KeyRound, Power, Trash2, BookPlus, ChevronDown, ChevronUp, Mail, Phone, Building2, RotateCcw, CheckCircle2, X, MoreHorizontal, ListChecks, Send, Link2, UserRound, Plus } from 'lucide-react';
 import { api } from '../../api';
 import { useAuth } from '../../App';
 import { useApi, Loading, ErrorBox, Avatar, Progress, Modal, useToast, useConfirm, StatusIcon, TypeIcon, Menu, MenuItem, STATUS_TEXT, Empty } from '../../components/ui';
@@ -10,7 +10,8 @@ import { fmtDate, fmtRelative, ROLE_LABEL } from '../../utils';
 import { LessonMeta } from '../student/CoursePage';
 
 function CourseProgress({ c, userId, isAdmin, onChanged }) {
-  const [open, setOpen] = useState(false);
+  const outOfAttempts = c.modules.some((m) => m.lessons.some((l) => l.outOfAttempts));
+  const [open, setOpen] = useState(outOfAttempts);
   const toast = useToast();
   const confirm = useConfirm();
   const unenroll = async () => {
@@ -20,6 +21,12 @@ function CourseProgress({ c, userId, isAdmin, onChanged }) {
   const resetProgress = async () => {
     if (!(await confirm({ title: 'Сбросить прогресс?', text: 'Удалятся все результаты по этому курсу: пройденные уроки, попытки тестов и ответы на задания.', ok: 'Сбросить', danger: true }))) return;
     await api.post(`/admin/users/${userId}/reset-progress`, { courseId: c.id }); toast('Прогресс сброшен'); onChanged();
+  };
+  const grant = async (l) => {
+    try {
+      await api.post(`/admin/users/${userId}/grant-attempts`, { lessonId: l.id, count: 1 });
+      toast('Открыта ещё одна попытка — сотрудник получит уведомление'); onChanged();
+    } catch (e) { toast.error(e); }
   };
   return (
     <div className="card module-card">
@@ -46,7 +53,11 @@ function CourseProgress({ c, userId, isAdmin, onChanged }) {
             <div key={m.id}>
               <div className="small bold muted" style={{ padding: '8px 4px 4px' }}>{m.title}</div>
               {m.lessons.map((l) => {
-                const inner = <><StatusIcon status={l.status} /><TypeIcon type={l.type} /><span className="l-title">{l.title}</span><span className="xs muted">{STATUS_TEXT[l.status]}</span><LessonMeta l={l} /></>;
+                const inner = <><StatusIcon status={l.status} /><TypeIcon type={l.type} /><span className="l-title">{l.title}</span><span className="xs muted">{STATUS_TEXT[l.status]}</span><LessonMeta l={l} />
+                  {l.outOfAttempts && <span className="attempts-over" onClick={(e) => e.stopPropagation()}>
+                    <span className="badge badge-danger">попытки закончились</span>
+                    <button type="button" className="btn btn-soft btn-sm" onClick={() => grant(l)}><Plus size={14} />Дать попытку</button>
+                  </span>}</>;
                 return l.submissionId
                   ? <Link key={l.id} to={`/admin/reviews/${l.submissionId}`} className={`lesson-row ${l.status === 'completed' ? 'done' : ''}`} style={{ marginBottom: 6 }}>{inner}</Link>
                   : <div key={l.id} className={`lesson-row ${l.status === 'completed' ? 'done' : ''}`} style={{ marginBottom: 6 }}>{inner}</div>;
@@ -110,7 +121,8 @@ export default function UserDetail() {
           <div className="flex-1" style={{ minWidth: 240 }}>
             <div className="row row-wrap"><h1 style={{ fontSize: 24 }}>{u.name}</h1><span className="badge badge-accent">{ROLE_LABEL[u.role]}</span>{!u.isActive && <span className="badge badge-danger">Доступ отключён</span>}</div>
             <div className="row row-wrap small muted mt-8" style={{ gap: 16 }}>
-              <span className="row" style={{ gap: 5 }}><Mail size={14} />{u.email}</span>
+              <span className="row" style={{ gap: 5 }} title="Логин для входа"><UserRound size={14} />{u.login || u.email}</span>
+              {u.contactEmail && u.contactEmail !== u.email && <span className="row" style={{ gap: 5 }} title="Резервный e-mail"><Mail size={14} />{u.contactEmail}</span>}
               {u.phone && <span className="row" style={{ gap: 5 }}><Phone size={14} />{u.phone}</span>}
               {(u.department || u.position) && <span className="row" style={{ gap: 5 }}><Building2 size={14} />{[u.department, u.position].filter(Boolean).join(' · ')}</span>}
             </div>

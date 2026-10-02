@@ -171,12 +171,52 @@ CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, is_read);
 CREATE INDEX IF NOT EXISTS idx_sub_status ON submissions(status);
 `);
 
-// Миграции: новые колонки добавляются в существующую базу без потери данных
+// Миграции: только добавление новых колонок и таблиц — существующие данные не изменяются и не удаляются.
+// Перед первым запуском новой версии на рабочей базе делается её полная копия (data/backups/…).
+const SCHEMA_VERSION = 2;
+
+/** Полная копия базы одним файлом (согласованная, даже пока платформа работает) */
+function snapshot(label) {
+  if (globalThis.__DEMO) return null; // демо-версия в браузере — копировать некуда
+  try {
+    const dir = path.join(config.DATA_DIR, 'backups');
+    fs.mkdirSync(dir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
+    const file = path.join(dir, `${label}-${stamp}.sqlite`);
+    db.exec(`VACUUM INTO '${file.replace(/'/g, "''")}'`);
+    return file;
+  } catch (e) {
+    console.warn('Не удалось сделать копию базы:', e.message);
+    return null;
+  }
+}
+
+const userVersion = Number(db.prepare('PRAGMA user_version').get().user_version) || 0;
+if (userVersion < SCHEMA_VERSION) {
+  const hasData = db.prepare('SELECT COUNT(*) AS n FROM users').get().n > 0;
+  if (hasData) {
+    const file = snapshot(`before-update-v${SCHEMA_VERSION}`);
+    if (file) console.log(`  Перед обновлением сохранена копия базы: ${file}`);
+  }
+}
 const userCols = new Set(db.prepare('PRAGMA table_info(users)').all().map((c) => c.name));
-for (const [col, type] of [['invite_token_hash', 'TEXT'], ['invite_expires_at', 'TEXT'], ['invited_at', 'TEXT'], ['invited_by', 'INTEGER']]) {
+for (const [col, type] of [['invite_token_hash', 'TEXT'], ['invite_expires_at', 'TEXT'], ['invited_at', 'TEXT'], ['invited_by', 'INTEGER'],
+  // резервный e-mail для писем, когда логин — не почта (может повторяться у разных сотрудников)
+  ['contact_email', "TEXT DEFAULT ''"]]) {
   if (!userCols.has(col)) db.exec(`ALTER TABLE users ADD COLUMN ${col} ${type}`);
 }
-db.exec('CREATE INDEX IF NOT EXISTS idx_users_invite ON users(invite_token_hash)');
+db.exec(`
+CREATE INDEX IF NOT EXISTS idx_users_invite ON users(invite_token_hash);
+-- дополнительные попытки теста, которые куратор выдал ученику сверх лимита
+CREATE TABLE IF NOT EXISTS test_attempt_grants (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  lesson_id INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+  extra INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, lesson_id)
+);
+`);
+if (userVersion < SCHEMA_VERSION) db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
 
 function json(value, fallback) {
   if (value == null || value === '') return fallback;
@@ -206,4 +246,4 @@ function backupTo(dest) {
   return sqliteBackup(db, dest);
 }
 
-module.exports = { db, json, tx, backupTo, DB_PATH };
+module.exports = { db, json, tx, backupTo, snapshot, DB_PATH };

@@ -75,7 +75,7 @@ const isStaff = (u) => u && (u.role === 'admin' || u.role === 'curator');
 function publicUser(u) {
   if (!u) return null;
   return {
-    id: u.id, email: u.email, name: u.name, role: u.role,
+    id: u.id, email: u.email, login: u.email, contactEmail: u.contact_email || '', name: u.name, role: u.role,
     position: u.position || '', department: u.department || '', phone: u.phone || '',
     city: u.city || '', about: u.about || '', comment: u.comment || '',
     avatar: u.avatar_file_id ? `/api/files/${u.avatar_file_id}` : null,

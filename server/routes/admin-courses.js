@@ -3,7 +3,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { db, json, tx } = require('../db');
 const auth = require('../auth');
-const { fail, courseCard, int, str, sendCsv } = require('../util');
+const { fail, courseCard, int, str, sendCsv, learningDefaults } = require('../util');
 const logic = require('../logic');
 const { notify } = require('../notify');
 
@@ -25,10 +25,12 @@ function defaultContent(type) {
 
 function defaultSettings(type, s = {}) {
   if (type === 'test') {
+    // для нового теста проходной балл и попытки берутся из «Настройки → Обучение»
+    const def = learningDefaults();
     return {
-      points: int(s.points) || 0, passPercent: s.passPercent != null ? Math.min(100, Math.max(0, int(s.passPercent) ?? 60)) : 60,
+      points: int(s.points) || 0, passPercent: s.passPercent != null ? Math.min(100, Math.max(0, int(s.passPercent) ?? def.passPercent)) : def.passPercent,
       showAnswers: ['all', 'correct', 'none'].includes(s.showAnswers) ? s.showAnswers : 'all',
-      attemptsLimit: int(s.attemptsLimit) || 0, timeLimitMin: int(s.timeLimitMin) || 0,
+      attemptsLimit: s.attemptsLimit != null ? Math.max(0, int(s.attemptsLimit) || 0) : def.attemptsLimit, timeLimitMin: int(s.timeLimitMin) || 0,
       shuffleQuestions: !!s.shuffleQuestions, shuffleOptions: !!s.shuffleOptions, bankCount: int(s.bankCount) || 0,
     };
   }
@@ -64,7 +66,7 @@ router.post('/courses', admin, (req, res) => {
   if (!title) fail(400, 'Введите название курса');
   const id = tx(() => {
     const sort = (db.prepare('SELECT MAX(sort) AS m FROM courses').get().m || 0) + 1;
-    const cid = db.prepare('INSERT INTO courses (title, sort) VALUES (?, ?)').run(title, sort).lastInsertRowid;
+    const cid = db.prepare('INSERT INTO courses (title, sort, sequential) VALUES (?, ?, ?)').run(title, sort, learningDefaults().sequential ? 1 : 0).lastInsertRowid;
     db.prepare('INSERT INTO modules (course_id, title, sort) VALUES (?, ?, 1)').run(cid, 'Первый модуль');
     return cid;
   });

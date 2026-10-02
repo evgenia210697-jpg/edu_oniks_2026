@@ -1329,3 +1329,7 @@ input[type="checkbox"]:disabled:checked, input[type="radio"]:disabled:checked { 
 /* отмеченные строки таблицы слегка подсвечиваются */
 .table tr:has(> td > input[type="checkbox"]:checked) > td { background: var(--accent-50); }
 .table .w-check, .table td:first-child:has(> input[type="checkbox"]) { width: 44px; }
+
+/* Карточка сотрудника: тест с исчерпанными попытками */
+.attempts-over { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+.learn-apply { align-items: center; }

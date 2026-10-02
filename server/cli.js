@@ -1,6 +1,6 @@
 // Служебные команды:
 //   npm run backup                          — резервная копия базы и файлов в папку backups/
-//   npm run set-password -- email пароль    — задать пароль пользователю (например, если админ забыл свой)
+//   npm run set-password -- логин пароль    — задать пароль пользователю (например, если админ забыл свой)
 //   npm run create-admin -- email пароль "Имя" — создать ещё одного администратора
 const path = require('path');
 const fs = require('fs');
@@ -20,7 +20,7 @@ async function backup() {
 }
 
 function setPassword(email, password) {
-  if (!email || !password || password.length < 6) throw new Error('Использование: npm run set-password -- email@company.ru НовыйПароль (минимум 6 символов)');
+  if (!email || !password || password.length < 6) throw new Error('Использование: npm run set-password -- логин_или_email НовыйПароль (минимум 6 символов)');
   const r = db.prepare('UPDATE users SET password_hash = ?, is_active = 1 WHERE email = ?').run(auth.hashPassword(password), email.toLowerCase());
   if (!r.changes) throw new Error(`Пользователь ${email} не найден`);
   db.prepare('DELETE FROM sessions WHERE user_id = (SELECT id FROM users WHERE email = ?)').run(email.toLowerCase());

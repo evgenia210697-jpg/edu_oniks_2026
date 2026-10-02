@@ -197,7 +197,7 @@ function TestView({ data, reload, goNext }) {
         <div className="row row-wrap">
           {canStart
             ? <button className="btn btn-primary btn-lg" onClick={start} disabled={busy}><ListChecks size={18} />{t.attempts.length ? 'Пройти ещё раз' : 'Начать тест'}</button>
-            : <div className="alert alert-warning" style={{ flex: 1 }}><Lock size={17} />Попытки закончились. Если нужна ещё одна — напишите куратору.</div>}
+            : !t.passed && <div className="alert alert-warning" style={{ flex: 1 }}><Lock size={17} /><div>Попытки закончились. Куратор уже получил уведомление и может открыть дополнительную попытку — тогда придёт уведомление в колокольчик.{data.course.sequential ? ' Следующие занятия откроются после сдачи теста.' : ''}</div></div>}
           {t.passed && data.next && <button className="btn btn-secondary btn-lg" onClick={goNext}>Следующее занятие<ChevronRight size={17} /></button>}
           {t.timeLimitMin > 0 && canStart && <span className="small muted"><Timer size={14} style={{ verticalAlign: '-2px' }} /> Таймер запустится после нажатия</span>}
         </div>

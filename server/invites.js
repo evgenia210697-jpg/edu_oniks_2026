@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { db } = require('./db');
 const config = require('./config');
 const { sendInviteMail, mailEnabled } = require('./notify');
+const { mailOf } = require('./util');
 
 const INVITE_DAYS = 7;
 
@@ -30,18 +31,19 @@ function issueInvite(userId, invitedById) {
 
 /** Выпустить приглашение и отправить письмо. Возвращает данные для экрана администратора */
 function inviteUser(req, userId) {
-  const u = db.prepare('SELECT id, email, name FROM users WHERE id = ?').get(userId);
+  const u = db.prepare('SELECT id, email, contact_email, name FROM users WHERE id = ?').get(userId);
+  const to = mailOf(u);
   const inv = issueInvite(userId, req.user?.id);
   const base = baseUrl(req);
   const link = base ? base + inv.path : inv.path;
   const courses = db.prepare(`SELECT c.title FROM enrollments e JOIN courses c ON c.id = e.course_id
     WHERE e.user_id = ? AND c.status = 'published' ORDER BY c.sort, c.id`).all(userId).map((c) => c.title);
-  const emailSent = mailEnabled();
+  const emailSent = mailEnabled() && !!to;
   if (emailSent) {
-    sendInviteMail({ to: u.email, name: realName(u), link, invitedBy: req.user?.name, courses, days: INVITE_DAYS })
+    sendInviteMail({ to, name: realName(u), link, invitedBy: req.user?.name, courses, days: INVITE_DAYS })
       .catch(() => {});
   }
-  return { link, path: inv.path, expiresAt: inv.expiresAt, emailSent, email: u.email, name: u.name };
+  return { link, path: inv.path, expiresAt: inv.expiresAt, emailSent, noEmail: !to, sentTo: to, email: u.email, name: u.name };
 }
 
 function findByToken(token) {

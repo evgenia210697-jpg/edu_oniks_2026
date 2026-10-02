@@ -2,7 +2,7 @@
 const express = require('express');
 const { db, tx, json } = require('../db');
 const auth = require('../auth');
-const { fail, int, str, sendCsv, courseCard } = require('../util');
+const { fail, int, str, sendCsv, courseCard, emailOk, loginValid, suggestLogin } = require('../util');
 const logic = require('../logic');
 const { notify } = require('../notify');
 const invites = require('../invites');
@@ -13,7 +13,6 @@ const staff = auth.requireRole('admin', 'curator');
 
 const ROLES = ['student', 'curator', 'admin'];
 const getUser = (id) => db.prepare('SELECT * FROM users WHERE id = ?').get(int(id)) || fail(404, 'Сотрудник не найден');
-const emailOk = (e) => /^[^\s@]+@[^\s@]+$/.test(e);
 
 function userStats(u) {
   const enr = db.prepare('SELECT course_id, completed_at FROM enrollments WHERE user_id = ?').all(u.id);
@@ -34,7 +33,7 @@ router.get('/users', staff, (req, res) => {
   const role = ROLES.includes(req.query.role) ? req.query.role : null;
   const q = str(req.query.q, 100).toLowerCase();
   let rows = db.prepare(`SELECT * FROM users ${role ? 'WHERE role = ?' : ''} ORDER BY is_active DESC, name COLLATE NOCASE`).all(...(role ? [role] : []));
-  if (q) rows = rows.filter((u) => `${u.name} ${u.email} ${u.department} ${u.position}`.toLowerCase().includes(q));
+  if (q) rows = rows.filter((u) => `${u.name} ${u.email} ${u.contact_email || ''} ${u.department} ${u.position}`.toLowerCase().includes(q));
   const withStats = req.query.stats !== '0';
   res.json(rows.map((u) => ({ ...auth.publicUser(u), ...(withStats ? userStats(u) : {}) })));
 });
@@ -70,17 +69,29 @@ router.get('/users/export', staff, (_req, res) => {
 });
 
 function createUser(b, byAdmin) {
-  const email = str(b.email, 200).toLowerCase();
-  if (!emailOk(email)) fail(400, `Некорректный email: ${email || '(пусто)'}`);
+  let email;
+  if (b.invite) {
+    // по приглашению логином становится e-mail: на него уходит письмо
+    email = str(b.email, 200).toLowerCase();
+    if (!emailOk(email)) fail(400, `Некорректный email: ${email || '(пусто)'}`);
+  } else {
+    // при выдаче пароля логин может быть любым (не обязательно почтой)
+    email = b.autoLogin ? suggestLogin(b.name) : str(b.login ?? b.email, 200).toLowerCase();
+    if (!email) fail(400, 'Укажите логин');
+    if (!loginValid(email)) fail(400, `Логин «${email}» не подходит: используйте e-mail или латиницу, цифры, точку, дефис (от 3 символов)`);
+  }
+  // резервный e-mail для писем — необязательный, может повторяться у разных сотрудников
+  const contactEmail = b.invite ? '' : str(b.contactEmail, 200).toLowerCase();
+  if (contactEmail && !emailOk(contactEmail)) fail(400, `Некорректный резервный e-mail: ${contactEmail}`);
   // при приглашении имя можно не указывать — сотрудник впишет его сам
   const name = str(b.name, 120) || (b.invite ? email.split('@')[0] : '');
   if (!name) fail(400, 'Укажите ФИО');
-  if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) fail(409, `Пользователь с email ${email} уже есть`);
+  if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) fail(409, `Логин ${email} уже занят`);
   const role = ROLES.includes(b.role) ? b.role : 'student';
   // по приглашению пароль задаёт сам сотрудник — до этого войти по паролю нельзя
   const password = !b.invite && b.password && String(b.password).length >= 6 ? String(b.password) : auth.generatePassword(b.invite ? 24 : 10);
-  const id = db.prepare(`INSERT INTO users (email, name, password_hash, role, position, department, phone, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(email, name, auth.hashPassword(password), role, str(b.position, 120), str(b.department, 120), str(b.phone, 40), str(b.comment, 500)).lastInsertRowid;
+  const id = db.prepare(`INSERT INTO users (email, contact_email, name, password_hash, role, position, department, phone, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(email, contactEmail, name, auth.hashPassword(password), role, str(b.position, 120), str(b.department, 120), str(b.phone, 40), str(b.comment, 500)).lastInsertRowid;
   const courseIds = (b.courseIds || []).map(int).filter(Boolean);
   for (const cid of courseIds) {
     const c = db.prepare('SELECT * FROM courses WHERE id = ?').get(cid);
@@ -90,6 +101,11 @@ function createUser(b, byAdmin) {
   }
   return b.invite ? { id, email, name } : { id, email, name, password };
 }
+
+// Свободный логин по ФИО (кнопка «Сгенерировать» в окне добавления)
+router.get('/users/suggest-login', admin, (req, res) => {
+  res.json({ login: suggestLogin(req.query.name) });
+});
 
 router.post('/users', admin, (req, res) => {
   const b = req.body || {};
@@ -114,7 +130,9 @@ router.post('/users/import', admin, (req, res) => {
   rows.forEach((r, i) => {
     try {
       const invite = !!req.body?.invite;
-      const u = tx(() => createUser({ ...r, role: 'student', courseIds, invite }, req.user));
+      // без приглашений: логин генерируется по ФИО, e-mail из таблицы становится резервным
+      const data = invite ? { ...r } : { name: r.name, contactEmail: r.email, department: r.department, position: r.position, autoLogin: true };
+      const u = tx(() => createUser({ ...data, role: 'student', courseIds, invite }, req.user));
       created.push(invite ? { ...u, invite: invites.inviteUser(req, u.id) } : u);
     } catch (e) { errors.push({ row: i + 1, email: r.email, error: e.message }); }
   });
@@ -161,15 +179,19 @@ router.get('/users/:id', staff, (req, res) => {
 router.put('/users/:id', admin, (req, res) => {
   const u = getUser(req.params.id);
   const b = req.body || {};
-  const email = 'email' in b ? str(b.email, 200).toLowerCase() : u.email;
-  if (!emailOk(email)) fail(400, 'Некорректный email');
-  if (email !== u.email && db.prepare('SELECT 1 FROM users WHERE email = ? AND id <> ?').get(email, u.id)) fail(409, 'Такой email уже занят');
+  const raw = 'login' in b ? b.login : ('email' in b ? b.email : null);
+  const email = raw != null ? str(raw, 200).toLowerCase() : u.email;
+  // старые логины не проверяем строже, чем при создании: менять их не заставляем
+  if (email !== u.email && !loginValid(email)) fail(400, 'Логин не подходит: используйте e-mail или латиницу, цифры, точку, дефис (от 3 символов)');
+  if (email !== u.email && db.prepare('SELECT 1 FROM users WHERE email = ? AND id <> ?').get(email, u.id)) fail(409, 'Такой логин уже занят');
+  const contactEmail = 'contactEmail' in b ? str(b.contactEmail, 200).toLowerCase() : (u.contact_email || '');
+  if (contactEmail && !emailOk(contactEmail)) fail(400, 'Некорректный резервный e-mail');
   const role = ROLES.includes(b.role) ? b.role : u.role;
   if (u.id === req.user.id && role !== 'admin') fail(400, 'Нельзя снять с себя роль администратора');
   const isActive = 'isActive' in b ? (b.isActive ? 1 : 0) : u.is_active;
   if (u.id === req.user.id && !isActive) fail(400, 'Нельзя отключить собственный доступ');
-  db.prepare(`UPDATE users SET email = ?, name = ?, role = ?, position = ?, department = ?, phone = ?, comment = ?, is_active = ? WHERE id = ?`)
-    .run(email, str(b.name ?? u.name, 120) || u.name, role, str(b.position ?? u.position, 120), str(b.department ?? u.department, 120),
+  db.prepare(`UPDATE users SET email = ?, contact_email = ?, name = ?, role = ?, position = ?, department = ?, phone = ?, comment = ?, is_active = ? WHERE id = ?`)
+    .run(email, contactEmail, str(b.name ?? u.name, 120) || u.name, role, str(b.position ?? u.position, 120), str(b.department ?? u.department, 120),
       str(b.phone ?? u.phone, 40), str(b.comment ?? u.comment, 500), isActive, u.id);
   if (!isActive) {
     db.prepare('DELETE FROM sessions WHERE user_id = ?').run(u.id);
@@ -211,6 +233,17 @@ router.post('/users/:id/reset-progress', admin, (req, res) => {
     db.prepare('UPDATE enrollments SET started_at = NULL, completed_at = NULL, last_lesson_id = NULL WHERE user_id = ? AND course_id = ?').run(u.id, cid);
   });
   res.json({ ok: true });
+});
+
+// Открыть ученику дополнительные попытки теста (когда лимит исчерпан)
+router.post('/users/:id/grant-attempts', staff, (req, res) => {
+  const u = getUser(req.params.id);
+  const l = db.prepare("SELECT * FROM lessons WHERE id = ? AND type = 'test'").get(int(req.body?.lessonId)) || fail(404, 'Тест не найден');
+  const count = Math.min(10, Math.max(1, int(req.body?.count) || 1));
+  db.prepare(`INSERT INTO test_attempt_grants (user_id, lesson_id, extra) VALUES (?, ?, ?)
+    ON CONFLICT(user_id, lesson_id) DO UPDATE SET extra = extra + excluded.extra, updated_at = datetime('now')`).run(u.id, l.id, count);
+  notify(u.id, { type: 'attempts_granted', title: `Открыта дополнительная попытка теста «${l.title}»`, body: 'Можно пройти тест ещё раз.', link: `/course/${l.course_id}/lesson/${l.id}` });
+  res.json({ ok: true, attemptsLimit: logic.attemptsLimitFor(u.id, l.id, json(l.settings, {})) });
 });
 
 // Просмотр конкретной попытки теста (для куратора)
